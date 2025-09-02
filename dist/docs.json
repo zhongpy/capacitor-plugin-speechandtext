@@ -86,11 +86,74 @@
         "docs": "",
         "complexTypes": [],
         "slug": "generatespeech"
+      },
+      {
+        "name": "addListener",
+        "signature": "(eventName: 'onRecognizerResult', listenerFunc: (data: { text: string; isEndpoint: boolean; }) => void) => any",
+        "parameters": [
+          {
+            "name": "eventName",
+            "docs": "",
+            "type": "'onRecognizerResult'"
+          },
+          {
+            "name": "listenerFunc",
+            "docs": "",
+            "type": "(data: { text: string; isEndpoint: boolean; }) => void"
+          }
+        ],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "PluginListenerHandle"
+        ],
+        "slug": "addlisteneronrecognizerresult-"
+      },
+      {
+        "name": "addListener",
+        "signature": "(eventName: 'onGenerationComplete', listenerFunc: (data: { value: string; }) => void) => any",
+        "parameters": [
+          {
+            "name": "eventName",
+            "docs": "",
+            "type": "'onGenerationComplete'"
+          },
+          {
+            "name": "listenerFunc",
+            "docs": "",
+            "type": "(data: { value: string; }) => void"
+          }
+        ],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "PluginListenerHandle"
+        ],
+        "slug": "addlistenerongenerationcomplete-"
       }
     ],
     "properties": []
   },
-  "interfaces": [],
+  "interfaces": [
+    {
+      "name": "PluginListenerHandle",
+      "slug": "pluginlistenerhandle",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "remove",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "() => any"
+        }
+      ]
+    }
+  ],
   "enums": [],
   "typeAliases": [],
   "pluginConfigs": []

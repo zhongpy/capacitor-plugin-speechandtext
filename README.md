@@ -20,6 +20,9 @@ npx cap sync
 * [`checkPermission()`](#checkpermission)
 * [`InitTTS()`](#inittts)
 * [`generateSpeech(...)`](#generatespeech)
+* [`addListener('onRecognizerResult', ...)`](#addlisteneronrecognizerresult-)
+* [`addListener('onGenerationComplete', ...)`](#addlistenerongenerationcomplete-)
+* [Interfaces](#interfaces)
 
 </docgen-index>
 
@@ -109,5 +112,47 @@ generateSpeech(options: { text: string; sid: number; speed: number; }) => any
 **Returns:** <code>any</code>
 
 --------------------
+
+
+### addListener('onRecognizerResult', ...)
+
+```typescript
+addListener(eventName: 'onRecognizerResult', listenerFunc: (data: { text: string; isEndpoint: boolean; }) => void) => any
+```
+
+| Param              | Type                                                                   |
+| ------------------ | ---------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onRecognizerResult'</code>                                      |
+| **`listenerFunc`** | <code>(data: { text: string; isEndpoint: boolean; }) =&gt; void</code> |
+
+**Returns:** <code>any</code>
+
+--------------------
+
+
+### addListener('onGenerationComplete', ...)
+
+```typescript
+addListener(eventName: 'onGenerationComplete', listenerFunc: (data: { value: string; }) => void) => any
+```
+
+| Param              | Type                                               |
+| ------------------ | -------------------------------------------------- |
+| **`eventName`**    | <code>'onGenerationComplete'</code>                |
+| **`listenerFunc`** | <code>(data: { value: string; }) =&gt; void</code> |
+
+**Returns:** <code>any</code>
+
+--------------------
+
+
+### Interfaces
+
+
+#### PluginListenerHandle
+
+| Prop         | Type                      |
+| ------------ | ------------------------- |
+| **`remove`** | <code>() =&gt; any</code> |
 
 </docgen-api>
