@@ -37,7 +37,9 @@ public class SpeechAndTextPlugin extends Plugin {
                 stt = new SpeechToText();
                 stt.initModel(21,getContext());
             }
-            call.resolve();
+            JSObject ret=new JSObject();
+            ret.put("value","Init STT Success!");
+            call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to initialize: " + e.getMessage());
         }
@@ -117,7 +119,9 @@ public class SpeechAndTextPlugin extends Plugin {
                 tts.initTTS(getContext());
                 tts.initAudioTrack();
             }
-            call.resolve();
+            JSObject ret=new JSObject();
+            ret.put("value","Init TTS Success!");
+            call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to initialize: " + e.getMessage());
         }
