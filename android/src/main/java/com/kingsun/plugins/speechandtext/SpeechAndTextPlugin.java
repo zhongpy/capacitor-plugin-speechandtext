@@ -35,10 +35,10 @@ public class SpeechAndTextPlugin extends Plugin {
         try {
             if (stt == null) {
                 stt = new SpeechToText();
-                stt.initModel(21,getContext());
+                stt.initModel(21, getContext());
             }
-            JSObject ret=new JSObject();
-            ret.put("value","Init STT Success!");
+            JSObject ret = new JSObject();
+            ret.put("value", "Init STT Success!");
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to initialize: " + e.getMessage());
@@ -57,7 +57,7 @@ public class SpeechAndTextPlugin extends Plugin {
             return;
         }
 
-        if (!stt.initMicrophone(getContext(),getActivity())) {
+        if (!stt.initMicrophone(getContext(), getActivity())) {
             call.reject("Failed to initialize microphone");
             return;
         }
@@ -117,10 +117,10 @@ public class SpeechAndTextPlugin extends Plugin {
             if (tts == null) {
                 tts = new TextToSpeech();
                 tts.initTTS(getContext());
-                tts.initAudioTrack();
+                //tts.initAudioTrack();
             }
-            JSObject ret=new JSObject();
-            ret.put("value","Init TTS Success!");
+            JSObject ret = new JSObject();
+            ret.put("value", "Init TTS Success!");
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to initialize: " + e.getMessage());
@@ -148,7 +148,7 @@ public class SpeechAndTextPlugin extends Plugin {
         ttsExecutor = Executors.newSingleThreadExecutor();
         ttsExecutor.execute(() -> {
             try {
-                JSObject result = tts.generateSpeech(text, sid, speed,getContext());
+                JSObject result = tts.generateSpeech(text, sid, speed, getContext());
                 if (result != null) {
                     notifyListeners("onGenerationComplete", result);
                     call.resolve(result);

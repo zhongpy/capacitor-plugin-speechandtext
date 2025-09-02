@@ -23,6 +23,7 @@ import com.k2fsa.sherpa.onnx.OfflineTtsMatchaModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,84 +40,97 @@ public class TextToSpeech {
     private final String outputFilename = "generated.wav";
     private volatile boolean stopped = false;
 
-    private String copyDataDir(String dataDir,Context context) {
-        Log.i(TAG, "data dir is " + dataDir);
-        if (context == null) {
-            return "";
-        }
-        copyAssets(dataDir,context);
-
-        File externalDir = context.getExternalFilesDir(null);
-        if (externalDir == null) {
-            externalDir = context.getFilesDir();
-        }
-
-        String newDataDir = externalDir.getAbsolutePath();
-        Log.i(TAG, "newDataDir: " + newDataDir);
-        return newDataDir;
+    private String copyDataDir(String dataDir, Context context) {
+        // 递归拷贝 assets/dataDir 到 files/dataDir
+        copyAssets(dataDir, context);
+        return new File(context.getFilesDir(), dataDir).getAbsolutePath();
     }
 
-    private void copyAssets(String path,Context context) {
-        if (context == null) return;
-
+    private void copyAssets(String path, Context context) {
+        AssetManager am = context.getAssets();
         try {
-            String[] assets = context.getAssets().list(path);
-            if (assets == null || assets.length == 0) {
-                copyFile(path,context);
+            // 1) 先尝试当“文件”打开
+            try (InputStream is = am.open(path)) {
+                // 能打开 -> 这是文件，直接复制
+                copyFileStream(path, is, context);
+                return;
+            } catch (FileNotFoundException fnf) {
+                // 打不开，可能是目录；继续判断
+            } catch (IOException openAsFileFailedButNotFound) {
+                // 其他 IO 错误也按不是文件处理，继续走目录逻辑
+            }
+
+            // 2) 再尝试当“目录”列出
+            String[] list = am.list(path);
+            if (list != null && list.length > 0) {
+                createDirectory(path, context);
+                for (String child : list) {
+                    String childPath = path.isEmpty() ? child : (path + "/" + child);
+                    copyAssets(childPath, context);
+                }
             } else {
-                String fullPath = context.getExternalFilesDir(null) + "/" + path;
-                File dir = new File(fullPath);
-                dir.mkdirs();
-                for (String asset : assets) {
-                    String p = path.isEmpty() ? "" : path + "/";
-                    copyAssets(p + asset,context);
+                // 有些设备/路径上 list 可能返回空但也不是可打开文件
+                // 为稳妥：再尝试一次按文件复制（会抛异常就记录日志）
+                try (InputStream is = am.open(path)) {
+                    copyFileStream(path, is, context);
+                } catch (Exception e) {
+                    Log.e(TAG, "copyAssets: neither file nor dir for " + path + " -> " + e);
                 }
             }
-        } catch (IOException ex) {
-            Log.e(TAG, "Failed to copy " + path + ". " + ex);
+        } catch (IOException e) {
+            Log.e(TAG, "copyAssets failed for " + path + ": " + e);
         }
     }
 
-    private void copyFile(String filename,Context context) {
-        if (context == null) return;
+    private void createDirectory(String path, Context context) {
+        File dir = new File(context.getFilesDir(), path);
+        if (!dir.exists() && !dir.mkdirs()) {
+            Log.w(TAG, "createDirectory: failed to mkdirs " + dir.getAbsolutePath());
+        }
+    }
 
-        InputStream istream = null;
-        OutputStream ostream = null;
-        try {
-            istream = context.getAssets().open(filename);
-            String newFilename = context.getExternalFilesDir(null) + "/" + filename;
+    private void copyFileStream(String assetPath, InputStream is, Context context) throws IOException {
+        File out = new File(context.getFilesDir(), assetPath);
 
-            File outFile = new File(newFilename);
-            File parentDir = outFile.getParentFile();
-            if (parentDir != null && !parentDir.exists()) {
-                parentDir.mkdirs();
-            }
+        // 若之前误创建成“同名目录”，先删掉再写文件
+        if (out.exists() && out.isDirectory()) {
+            deleteRecursively(out);
+        }
 
-            ostream = new FileOutputStream(outFile);
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = istream.read(buffer)) != -1) {
-                ostream.write(buffer, 0, read);
-            }
-            ostream.flush();
-        } catch (Exception ex) {
-            Log.e(TAG, "Failed to copy " + filename + ", " + ex);
-        } finally {
-            try {
-                if (istream != null) istream.close();
-                if (ostream != null) ostream.close();
-            } catch (IOException ex) {
-                Log.e(TAG, "Error closing streams", ex);
+        File parent = out.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+
+        try (OutputStream os = new FileOutputStream(out)) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = is.read(buf)) >= 0) os.write(buf, 0, n);
+            os.flush();
+        }
+        Log.i(TAG, "Copied file: " + out.getAbsolutePath() + " (" + out.length() + " bytes)");
+    }
+
+    private void deleteRecursively(File f) {
+        if (f.isDirectory()) {
+            File[] children = f.listFiles();
+            if (children != null) {
+                for (File c : children) deleteRecursively(c);
             }
         }
+        if (!f.delete()) {
+            Log.w(TAG, "deleteRecursively: failed to delete " + f.getAbsolutePath());
+        }
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s;
     }
 
     private OfflineTtsConfig getOfflineTtsConfig(
         String modelDir,
-        String modelName, // for VITS
-        String acousticModelName, // for Matcha
-        String vocoder, // for Matcha
-        String voices, // for Kokoro or kitten
+        String modelName, // VITS / Kokoro / Kitten 用
+        String acousticModelName, // Matcha 用
+        String vocoder, // Matcha 用
+        String voices, // Kokoro / Kitten 用
         String lexicon,
         String dataDir,
         String dictDir,
@@ -125,47 +139,55 @@ public class TextToSpeech {
         Integer numThreads,
         boolean isKitten
     ) {
-        int numberOfThreads;
-        if (numThreads != null) {
-            numberOfThreads = numThreads;
-        } else if (voices != null && !voices.isEmpty()) {
-            // for Kokoro and Kitten TTS models, we use more threads
-            numberOfThreads = 4;
-        } else {
-            numberOfThreads = 2;
-        }
+        modelDir = nz(modelDir);
+        modelName = nz(modelName);
+        acousticModelName = nz(acousticModelName);
+        vocoder = nz(vocoder);
+        voices = nz(voices);
+        lexicon = nz(lexicon);
+        dataDir = nz(dataDir);
+        dictDir = nz(dictDir);
+        ruleFsts = nz(ruleFsts);
+        ruleFars = nz(ruleFars);
 
-        if ((modelName == null || modelName.isEmpty()) && (acousticModelName == null || acousticModelName.isEmpty())) {
+        // 线程数
+        int numberOfThreads = (numThreads != null) ? numThreads : (!voices.isEmpty() ? 4 : 2);
+
+        // 至少要给一种模型
+        if (modelName.isEmpty() && acousticModelName.isEmpty()) {
             throw new IllegalArgumentException("Please specify a TTS model");
         }
-
-        if (modelName != null && !modelName.isEmpty() && acousticModelName != null && !acousticModelName.isEmpty()) {
+        // 不能混用 VITS 和 Matcha
+        if (!modelName.isEmpty() && !acousticModelName.isEmpty()) {
             throw new IllegalArgumentException("Please specify either a VITS or a Matcha model, but not both");
         }
-
-        if (acousticModelName != null && !acousticModelName.isEmpty() && (vocoder == null || vocoder.isEmpty())) {
+        // Matcha 必须有 vocoder
+        if (!acousticModelName.isEmpty() && vocoder.isEmpty()) {
             throw new IllegalArgumentException("Please provide vocoder for Matcha TTS");
         }
 
+        // --- VITS ---
         OfflineTtsVitsModelConfig vits;
-        if (modelName != null && !modelName.isEmpty() && (voices == null || voices.isEmpty())) {
+        if (!modelName.isEmpty() && voices.isEmpty()) {
+            // lexicon 可为空串（不要 null）
             vits = OfflineTtsVitsModelConfig.builder()
                 .setModel(modelDir + "/" + modelName)
-                .setLexicon(modelDir + "/" + lexicon)
+                .setLexicon(lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon)))
                 .setTokens(modelDir + "/tokens.txt")
-                .setDataDir(dataDir)
-                .setDictDir(dictDir)
+                .setDataDir(dataDir) // 允许空串
+                .setDictDir(dictDir) // 允许空串
                 .build();
         } else {
             vits = OfflineTtsVitsModelConfig.builder().build();
         }
 
+        // --- Matcha ---
         OfflineTtsMatchaModelConfig matcha;
-        if (acousticModelName != null && !acousticModelName.isEmpty()) {
+        if (!acousticModelName.isEmpty()) {
             matcha = OfflineTtsMatchaModelConfig.builder()
                 .setAcousticModel(modelDir + "/" + acousticModelName)
-                .setVocoder(vocoder)
-                .setLexicon(modelDir + "/" + lexicon)
+                .setVocoder(vocoder) // 非空校验已在上面
+                .setLexicon(lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon)))
                 .setTokens(modelDir + "/tokens.txt")
                 .setDictDir(dictDir)
                 .setDataDir(dataDir)
@@ -174,17 +196,10 @@ public class TextToSpeech {
             matcha = OfflineTtsMatchaModelConfig.builder().build();
         }
 
+        // --- Kokoro ---
         OfflineTtsKokoroModelConfig kokoro;
-        if (voices != null && !voices.isEmpty() && !isKitten) {
-            String lexiconPath;
-            if (lexicon == null || lexicon.isEmpty()) {
-                lexiconPath = "";
-            } else if (lexicon.contains(",")) {
-                lexiconPath = lexicon;
-            } else {
-                lexiconPath = modelDir + "/" + lexicon;
-            }
-
+        if (!voices.isEmpty() && !isKitten) {
+            String lexiconPath = lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon));
             kokoro = OfflineTtsKokoroModelConfig.builder()
                 .setModel(modelDir + "/" + modelName)
                 .setVoices(modelDir + "/" + voices)
@@ -197,6 +212,7 @@ public class TextToSpeech {
             kokoro = OfflineTtsKokoroModelConfig.builder().build();
         }
 
+        // --- Kitten ---
         OfflineTtsKittenModelConfig kitten;
         if (isKitten) {
             kitten = OfflineTtsKittenModelConfig.builder()
@@ -219,12 +235,16 @@ public class TextToSpeech {
             .setProvider("cpu")
             .build();
 
-        return OfflineTtsConfig.builder().setModel(modelConfig).setRuleFsts(ruleFsts).setRuleFars(ruleFars).build();
+        return OfflineTtsConfig.builder()
+            .setModel(modelConfig)
+            .setRuleFsts(ruleFsts) // 空串 OK，不能传 null
+            .setRuleFars(ruleFars) // 空串 OK，不能传 null
+            .build();
     }
 
     private int audioCallback(float[] samples) {
         if (!stopped) {
-            track.write(samples, 0, samples.length, AudioTrack.WRITE_BLOCKING);
+            //track.write(samples, 0, samples.length, AudioTrack.WRITE_BLOCKING);
 
             // Send progress update
             //JSObject progress = new JSObject();
@@ -233,41 +253,38 @@ public class TextToSpeech {
 
             return 1;
         } else {
-            track.stop();
+            //track.stop();
             return 0;
         }
     }
 
     public void initTTS(Context context) {
+        // 以 piper 的 VITS 英文模型为例
         String modelDir = "vits-piper-en_US-miro-high";
         String modelName = "en_US-miro-high.onnx";
-        String dataDir = "vits-piper-en_US-miro-high/espeak-ng-data";
-        String ruleFsts = null;
+        String dataDir = "vits-piper-en_US-miro-high/espeak-ng-data"; // 目录
+        String ruleFsts = null; // 会在 getOfflineTtsConfig 内转成 ""
         String ruleFars = null;
-        String lexicon = null;
-        String dictDir = null;
-        String acousticModelName = null;
-        String vocoder = null;
-        String voices = null;
-
+        String lexicon = ""; // 英文 piper 通常不需要 lexicon，显式设为空串
+        String dictDir = ""; // 无则传空串
+        String acousticModelName = "";
+        String vocoder = "";
+        String voices = "";
         boolean isKitten = false;
-        if (context == null) {
-            throw new IllegalStateException("Context is null");
-        }
 
-        // Copy data directories if needed
-        if (dataDir != null && !dataDir.isEmpty()) {
-            String newDir = copyDataDir(dataDir,context);
-            dataDir = newDir + "/" + dataDir;
-        }
+        if (context == null) throw new IllegalStateException("Context is null");
 
-        if (dictDir != null && !dictDir.isEmpty()) {
-            String newDir = copyDataDir(dictDir,context);
-            dictDir = newDir + "/" + dictDir;
-            if (ruleFsts == null || ruleFsts.isEmpty()) {
-                ruleFsts = modelDir + "/phone.fst," + modelDir + "/date.fst," + modelDir + "/number.fst";
-            }
-        }
+        // 拷贝 modelDir
+        modelDir = copyDataDir(modelDir, context); // -> /data/user/0/<pkg>/files/vits-piper-en_US-miro-high
+        // 拷贝 dataDir
+        dataDir = copyDataDir(dataDir, context);
+
+        // 自检：必须是文件
+        String modelPath = modelDir + "/" + modelName;
+        String tokensPath = modelDir + "/tokens.txt";
+        assertIsFile("TTS model", modelPath);
+        assertIsFile("TTS tokens", tokensPath);
+        assertIsDir("TTS data", dataDir);
 
         OfflineTtsConfig config = getOfflineTtsConfig(
             modelDir,
@@ -285,6 +302,23 @@ public class TextToSpeech {
         );
 
         tts = new OfflineTts(config);
+    }
+
+    private static void assertIsFile(String label, String path) {
+        File f = new File(path);
+        Log.i(TAG, label + " exists=" + f.exists() + " isFile=" + f.isFile() + " size=" + (f.exists() ? f.length() : -1) + " path=" + path);
+        if (!f.exists() || !f.isFile() || f.length() < 128) {
+            // 小于 128 字节大概率是 LFS 指针或损坏
+            throw new IllegalStateException(label + " invalid: " + path);
+        }
+    }
+
+    private static void assertIsDir(String label, String path) {
+        File f = new File(path);
+        Log.i(TAG, label + " exists=" + f.exists() + " isDir=" + f.isDirectory() + " path=" + path);
+        if (!f.exists() || !f.isDirectory()) {
+            throw new IllegalStateException(label + " directory invalid: " + path);
+        }
     }
 
     public void initAudioTrack() {
@@ -312,10 +346,10 @@ public class TextToSpeech {
         track.play();
     }
 
-    public JSObject generateSpeech(String text, int sid, float speed,Context context) {
-        track.pause();
-        track.flush();
-        track.play();
+    public JSObject generateSpeech(String text, int sid, float speed, Context context) {
+        //track.pause();
+        //track.flush();
+        //track.play();
 
         GeneratedAudio audio = tts.generateWithCallback(text, sid, speed, this::audioCallback);
 

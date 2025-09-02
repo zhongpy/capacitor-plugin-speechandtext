@@ -1,4 +1,5 @@
 import type { PluginListenerHandle } from '@capacitor/core';
+
 export interface SpeechAndTextPlugin {
   echo(options: { value: string }): Promise<{ value: string }>;
   InitSTT(): Promise<{ value: string }>;
@@ -11,10 +12,10 @@ export interface SpeechAndTextPlugin {
 
   addListener(
     eventName: 'onRecognizerResult',
-    listenerFunc: (data: { text: string; isEndpoint: boolean }) => void
+    listenerFunc: (data: { text: string; isEndpoint: boolean }) => void,
   ): Promise<PluginListenerHandle>;
   addListener(
     eventName: 'onGenerationComplete',
-    listenerFunc: (data: { value: string }) => void
+    listenerFunc: (data: { value: string }) => void,
   ): Promise<PluginListenerHandle>;
 }

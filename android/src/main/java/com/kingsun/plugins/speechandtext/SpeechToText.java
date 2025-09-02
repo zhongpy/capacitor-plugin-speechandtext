@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
@@ -21,6 +22,8 @@ import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig;
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
 import com.k2fsa.sherpa.onnx.OnlineZipformer2CtcModelConfig;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,7 +57,7 @@ public class SpeechToText {
         return ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
 
-    public void initModel(Integer type,Context context) {
+    public void initModel(Integer type, Context context) {
         String ruleFsts = null;
 
         boolean useHr = false;
@@ -68,7 +71,7 @@ public class SpeechToText {
         OnlineRecognizerConfig.Builder orbuilder = OnlineRecognizerConfig.builder();
         FeatureConfig fconfig = FeatureConfig.builder().setSampleRate(sampleRateInHz).setFeatureDim(80).build();
         orbuilder.setFeatureConfig(fconfig);
-        orbuilder.setOnlineModelConfig(getModelConfig(type));
+        orbuilder.setOnlineModelConfig(getModelConfig(type, context));
         EndpointConfig econfig = EndpointConfig.builder().build();
         orbuilder.setEndpointConfig(econfig);
         if (ruleFsts != null) {
@@ -79,7 +82,7 @@ public class SpeechToText {
         if (useHr) {
             if (!hr.getDictDir().isEmpty() && hr.getDictDir().charAt(0) != '/') {
                 // We need to copy it from the assets directory to some path
-                String newDir = copyDataDir(hr.getDictDir(),context);
+                String newDir = copyDataDir(hr.getDictDir(), context);
                 builder.setDictDir(newDir + "/" + hr.getDictDir());
                 hr = builder.build();
             }
@@ -90,8 +93,7 @@ public class SpeechToText {
         recognizer = new OnlineRecognizer(OnlineRconfig);
     }
 
-    public boolean initMicrophone(Context context,Activity activity) {
-
+    public boolean initMicrophone(Context context, Activity activity) {
         if (context == null || activity == null) {
             Log.e(TAG, "Context or Activity is null");
             return false;
@@ -225,88 +227,105 @@ public class SpeechToText {
         }
     }
 
-    private String copyDataDir(String dataDir,Context context) {
-        Log.i(TAG, "data dir is " + dataDir);
-        copyAssets(dataDir,context);
-
-        File externalDir = context.getExternalFilesDir(null);
-        if (externalDir == null) {
-            externalDir = context.getFilesDir();
-        }
-        String newDataDir = externalDir.getAbsolutePath();
-        Log.i(TAG, "newDataDir: " + newDataDir);
-        return newDataDir;
+    private String copyDataDir(String dataDir, Context context) {
+        // 递归拷贝 assets/dataDir 到 files/dataDir
+        copyAssets(dataDir, context);
+        return new File(context.getFilesDir(), dataDir).getAbsolutePath();
     }
 
-    private void copyAssets(String path,Context context) {
+    private void copyAssets(String path, Context context) {
+        AssetManager am = context.getAssets();
         try {
-            String[] assets = context.getAssets().list(path);
-            if (assets == null) {
-                // 可能是文件
-                copyFile(path,context);
-            } else if (assets.length == 0) {
-                // 空目录
-                createDirectory(path,context);
+            // 1) 先尝试当“文件”打开
+            try (InputStream is = am.open(path)) {
+                // 能打开 -> 这是文件，直接复制
+                copyFileStream(path, is, context);
+                return;
+            } catch (FileNotFoundException fnf) {
+                // 打不开，可能是目录；继续判断
+            } catch (IOException openAsFileFailedButNotFound) {
+                // 其他 IO 错误也按不是文件处理，继续走目录逻辑
+            }
+
+            // 2) 再尝试当“目录”列出
+            String[] list = am.list(path);
+            if (list != null && list.length > 0) {
+                createDirectory(path, context);
+                for (String child : list) {
+                    String childPath = path.isEmpty() ? child : (path + "/" + child);
+                    copyAssets(childPath, context);
+                }
             } else {
-                // 目录，递归复制
-                createDirectory(path,context);
-                for (String asset : assets) {
-                    String newPath = path.equals("") ? asset : path + "/" + asset;
-                    copyAssets(newPath,context);
+                // 有些设备/路径上 list 可能返回空但也不是可打开文件
+                // 为稳妥：再尝试一次按文件复制（会抛异常就记录日志）
+                try (InputStream is = am.open(path)) {
+                    copyFileStream(path, is, context);
+                } catch (Exception e) {
+                    Log.e(TAG, "copyAssets: neither file nor dir for " + path + " -> " + e);
                 }
             }
-        } catch (IOException ex) {
-            Log.e(TAG, "Failed to copy " + path + ". " + ex);
+        } catch (IOException e) {
+            Log.e(TAG, "copyAssets failed for " + path + ": " + e);
         }
     }
 
-    private void createDirectory(String path,Context context) {
-        String fullPath = context.getExternalFilesDir(null) + "/" + path;
-        File dir = new File(fullPath);
-        if (!dir.exists()) {
-            dir.mkdirs();
+    private void createDirectory(String path, Context context) {
+        File dir = new File(context.getFilesDir(), path);
+        if (!dir.exists() && !dir.mkdirs()) {
+            Log.w(TAG, "createDirectory: failed to mkdirs " + dir.getAbsolutePath());
         }
     }
 
-    private void copyFile(String filename,Context context) {
-        InputStream istream = null;
-        OutputStream ostream = null;
+    private void copyFileStream(String assetPath, InputStream is, Context context) throws IOException {
+        File out = new File(context.getFilesDir(), assetPath);
+
+        // 若之前误创建成“同名目录”，先删掉再写文件
+        if (out.exists() && out.isDirectory()) {
+            deleteRecursively(out);
+        }
+
+        File parent = out.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+
+        try (OutputStream os = new FileOutputStream(out)) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = is.read(buf)) >= 0) os.write(buf, 0, n);
+            os.flush();
+        }
+        Log.i(TAG, "Copied file: " + out.getAbsolutePath() + " (" + out.length() + " bytes)");
+    }
+
+    private void deleteRecursively(File f) {
+        if (f.isDirectory()) {
+            File[] children = f.listFiles();
+            if (children != null) {
+                for (File c : children) deleteRecursively(c);
+            }
+        }
+        if (!f.delete()) {
+            Log.w(TAG, "deleteRecursively: failed to delete " + f.getAbsolutePath());
+        }
+    }
+
+    private static void checkFile(String label, String path) {
         try {
-            istream = context.getAssets().open(filename);
-            String newFilename = context.getExternalFilesDir(null) + "/" + filename;
-
-            // 确保父目录存在
-            File outFile = new File(newFilename);
-            File parentDir = outFile.getParentFile();
-            if (parentDir != null && !parentDir.exists()) {
-                parentDir.mkdirs();
+            File f = new File(path);
+            Log.i("SpeechToText", label + " size=" + f.length() + " path=" + path);
+            try (FileInputStream fis = new FileInputStream(f)) {
+                byte[] head = new byte[64];
+                int n = fis.read(head);
+                String headStr = new String(head, 0, Math.max(0, n));
+                Log.i("SpeechToText", label + " head=" + headStr.replaceAll("\\s+", " "));
+                // Git LFS pointer 文件通常以如下文本开头：
+                // "version https://git-lfs.github.com/spec/v1"
             }
-
-            ostream = new FileOutputStream(outFile);
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = istream.read(buffer)) != -1) {
-                ostream.write(buffer, 0, read);
-            }
-            ostream.flush();
-            Log.i(TAG, "Copied: " + filename);
-        } catch (Exception ex) {
-            Log.e(TAG, "Failed to copy " + filename + ", " + ex);
-        } finally {
-            try {
-                if (istream != null) {
-                    istream.close();
-                }
-                if (ostream != null) {
-                    ostream.close();
-                }
-            } catch (IOException ex) {
-                Log.e(TAG, "Error closing streams: " + ex);
-            }
+        } catch (Exception e) {
+            Log.e("SpeechToText", "checkFile failed for " + label + ": " + e);
         }
     }
 
-    private OnlineModelConfig getModelConfig(int type) {
+    private OnlineModelConfig getModelConfig(int type, Context context) {
         switch (type) {
             case 0: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20";
@@ -549,15 +568,20 @@ public class SpeechToText {
             }
             case 21: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06";
+                String NewDir = copyDataDir(modelDir, context);
+                checkFile("encoder", NewDir + "/encoder.onnx");
+                checkFile("decoder", NewDir + "/decoder.onnx");
+                checkFile("joiner", NewDir + "/joiner.onnx");
+                checkFile("tokens", NewDir + "/tokens.txt");
                 return OnlineModelConfig.builder()
                     .setTransducer(
                         OnlineTransducerModelConfig.builder()
-                            .setEncoder(modelDir + "/encoder.onnx")
-                            .setDecoder(modelDir + "/decoder.onnx")
-                            .setJoiner(modelDir + "/joiner.onnx")
+                            .setEncoder(NewDir + "/encoder.onnx")
+                            .setDecoder(NewDir + "/decoder.onnx")
+                            .setJoiner(NewDir + "/joiner.onnx")
                             .build()
                     )
-                    .setTokens(modelDir + "/tokens.txt")
+                    .setTokens(NewDir + "/tokens.txt")
                     .setModelType("zipformer2")
                     .build();
             }
