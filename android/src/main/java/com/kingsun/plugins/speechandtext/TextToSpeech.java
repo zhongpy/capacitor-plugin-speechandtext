@@ -9,7 +9,6 @@ import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.util.Log;
-
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -18,12 +17,11 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.k2fsa.sherpa.onnx.GeneratedAudio;
 import com.k2fsa.sherpa.onnx.OfflineTts;
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig;
-import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsKittenModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsMatchaModelConfig;
+import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -31,21 +29,22 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 public class TextToSpeech {
+
     private static final String TAG = "TextToSpeech";
     private OfflineTts tts;
     private AudioTrack track;
     private ExecutorService ttsExecutor;
     private final String outputFilename = "generated.wav";
     private volatile boolean stopped = false;
-    private String copyDataDir(String dataDir) {
-        Log.i(TAG, "data dir is " + dataDir);
-        copyAssets(dataDir);
 
-        Context context = Plugin.getContext();
+    private String copyDataDir(String dataDir,Context context) {
+        Log.i(TAG, "data dir is " + dataDir);
         if (context == null) {
             return "";
         }
+        copyAssets(dataDir,context);
 
         File externalDir = context.getExternalFilesDir(null);
         if (externalDir == null) {
@@ -57,21 +56,20 @@ public class TextToSpeech {
         return newDataDir;
     }
 
-    private void copyAssets(String path) {
-        Context context = Plugin.getContext();
+    private void copyAssets(String path,Context context) {
         if (context == null) return;
 
         try {
             String[] assets = context.getAssets().list(path);
             if (assets == null || assets.length == 0) {
-                copyFile(path);
+                copyFile(path,context);
             } else {
                 String fullPath = context.getExternalFilesDir(null) + "/" + path;
                 File dir = new File(fullPath);
                 dir.mkdirs();
                 for (String asset : assets) {
                     String p = path.isEmpty() ? "" : path + "/";
-                    copyAssets(p + asset);
+                    copyAssets(p + asset,context);
                 }
             }
         } catch (IOException ex) {
@@ -79,8 +77,7 @@ public class TextToSpeech {
         }
     }
 
-    private void copyFile(String filename) {
-        Context context = Plugin.getContext();
+    private void copyFile(String filename,Context context) {
         if (context == null) return;
 
         InputStream istream = null;
@@ -115,18 +112,18 @@ public class TextToSpeech {
     }
 
     private OfflineTtsConfig getOfflineTtsConfig(
-            String modelDir,
-            String modelName, // for VITS
-            String acousticModelName, // for Matcha
-            String vocoder, // for Matcha
-            String voices, // for Kokoro or kitten
-            String lexicon,
-            String dataDir,
-            String dictDir,
-            String ruleFsts,
-            String ruleFars,
-            Integer numThreads,
-            boolean isKitten
+        String modelDir,
+        String modelName, // for VITS
+        String acousticModelName, // for Matcha
+        String vocoder, // for Matcha
+        String voices, // for Kokoro or kitten
+        String lexicon,
+        String dataDir,
+        String dictDir,
+        String ruleFsts,
+        String ruleFars,
+        Integer numThreads,
+        boolean isKitten
     ) {
         int numberOfThreads;
         if (numThreads != null) {
@@ -138,31 +135,27 @@ public class TextToSpeech {
             numberOfThreads = 2;
         }
 
-        if ((modelName == null || modelName.isEmpty()) &&
-                (acousticModelName == null || acousticModelName.isEmpty())) {
+        if ((modelName == null || modelName.isEmpty()) && (acousticModelName == null || acousticModelName.isEmpty())) {
             throw new IllegalArgumentException("Please specify a TTS model");
         }
 
-        if (modelName != null && !modelName.isEmpty() &&
-                acousticModelName != null && !acousticModelName.isEmpty()) {
+        if (modelName != null && !modelName.isEmpty() && acousticModelName != null && !acousticModelName.isEmpty()) {
             throw new IllegalArgumentException("Please specify either a VITS or a Matcha model, but not both");
         }
 
-        if (acousticModelName != null && !acousticModelName.isEmpty() &&
-                (vocoder == null || vocoder.isEmpty())) {
+        if (acousticModelName != null && !acousticModelName.isEmpty() && (vocoder == null || vocoder.isEmpty())) {
             throw new IllegalArgumentException("Please provide vocoder for Matcha TTS");
         }
 
         OfflineTtsVitsModelConfig vits;
-        if (modelName != null && !modelName.isEmpty() &&
-                (voices == null || voices.isEmpty())) {
+        if (modelName != null && !modelName.isEmpty() && (voices == null || voices.isEmpty())) {
             vits = OfflineTtsVitsModelConfig.builder()
-                    .setModel(modelDir + "/" + modelName)
-                    .setLexicon(modelDir + "/" + lexicon)
-                    .setTokens(modelDir + "/tokens.txt")
-                    .setDataDir(dataDir)
-                    .setDictDir(dictDir)
-                    .build();
+                .setModel(modelDir + "/" + modelName)
+                .setLexicon(modelDir + "/" + lexicon)
+                .setTokens(modelDir + "/tokens.txt")
+                .setDataDir(dataDir)
+                .setDictDir(dictDir)
+                .build();
         } else {
             vits = OfflineTtsVitsModelConfig.builder().build();
         }
@@ -170,13 +163,13 @@ public class TextToSpeech {
         OfflineTtsMatchaModelConfig matcha;
         if (acousticModelName != null && !acousticModelName.isEmpty()) {
             matcha = OfflineTtsMatchaModelConfig.builder()
-                    .setAcousticModel(modelDir + "/" + acousticModelName)
-                    .setVocoder(vocoder)
-                    .setLexicon(modelDir + "/" + lexicon)
-                    .setTokens(modelDir + "/tokens.txt")
-                    .setDictDir(dictDir)
-                    .setDataDir(dataDir)
-                    .build();
+                .setAcousticModel(modelDir + "/" + acousticModelName)
+                .setVocoder(vocoder)
+                .setLexicon(modelDir + "/" + lexicon)
+                .setTokens(modelDir + "/tokens.txt")
+                .setDictDir(dictDir)
+                .setDataDir(dataDir)
+                .build();
         } else {
             matcha = OfflineTtsMatchaModelConfig.builder().build();
         }
@@ -193,13 +186,13 @@ public class TextToSpeech {
             }
 
             kokoro = OfflineTtsKokoroModelConfig.builder()
-                    .setModel(modelDir + "/" + modelName)
-                    .setVoices(modelDir + "/" + voices)
-                    .setTokens(modelDir + "/tokens.txt")
-                    .setDataDir(dataDir)
-                    .setLexicon(lexiconPath)
-                    .setDictDir(dictDir)
-                    .build();
+                .setModel(modelDir + "/" + modelName)
+                .setVoices(modelDir + "/" + voices)
+                .setTokens(modelDir + "/tokens.txt")
+                .setDataDir(dataDir)
+                .setLexicon(lexiconPath)
+                .setDictDir(dictDir)
+                .build();
         } else {
             kokoro = OfflineTtsKokoroModelConfig.builder().build();
         }
@@ -207,30 +200,26 @@ public class TextToSpeech {
         OfflineTtsKittenModelConfig kitten;
         if (isKitten) {
             kitten = OfflineTtsKittenModelConfig.builder()
-                    .setModel(modelDir + "/" + modelName)
-                    .setVoices(modelDir + "/" + voices)
-                    .setTokens(modelDir + "/tokens.txt")
-                    .setDataDir(dataDir)
-                    .build();
+                .setModel(modelDir + "/" + modelName)
+                .setVoices(modelDir + "/" + voices)
+                .setTokens(modelDir + "/tokens.txt")
+                .setDataDir(dataDir)
+                .build();
         } else {
             kitten = OfflineTtsKittenModelConfig.builder().build();
         }
 
         OfflineTtsModelConfig modelConfig = OfflineTtsModelConfig.builder()
-                .setVits(vits)
-                .setMatcha(matcha)
-                .setKokoro(kokoro)
-                .setKitten(kitten)
-                .setNumThreads(numberOfThreads)
-                .setDebug(true)
-                .setProvider("cpu")
-                .build();
+            .setVits(vits)
+            .setMatcha(matcha)
+            .setKokoro(kokoro)
+            .setKitten(kitten)
+            .setNumThreads(numberOfThreads)
+            .setDebug(true)
+            .setProvider("cpu")
+            .build();
 
-        return OfflineTtsConfig.builder()
-                .setModel(modelConfig)
-                .setRuleFsts(ruleFsts)
-                .setRuleFars(ruleFars)
-                .build();
+        return OfflineTtsConfig.builder().setModel(modelConfig).setRuleFsts(ruleFsts).setRuleFars(ruleFars).build();
     }
 
     private int audioCallback(float[] samples) {
@@ -248,32 +237,32 @@ public class TextToSpeech {
             return 0;
         }
     }
-    public void initTTS(){
-        String modelDir="vits-piper-en_US-miro-high";
-        String modelName="en_US-miro-high.onnx";
-        String dataDir="vits-piper-en_US-miro-high/espeak-ng-data";
-        String ruleFsts=null;
-        String ruleFars=null;
-        String lexicon=null;
-        String dictDir=null;
-        String acousticModelName=null;
-        String vocoder=null;
-        String voices=null;
 
-        boolean isKitten=false;
-        Context context = Plugin.getContext();
+    public void initTTS(Context context) {
+        String modelDir = "vits-piper-en_US-miro-high";
+        String modelName = "en_US-miro-high.onnx";
+        String dataDir = "vits-piper-en_US-miro-high/espeak-ng-data";
+        String ruleFsts = null;
+        String ruleFars = null;
+        String lexicon = null;
+        String dictDir = null;
+        String acousticModelName = null;
+        String vocoder = null;
+        String voices = null;
+
+        boolean isKitten = false;
         if (context == null) {
             throw new IllegalStateException("Context is null");
         }
 
         // Copy data directories if needed
         if (dataDir != null && !dataDir.isEmpty()) {
-            String newDir = copyDataDir(dataDir);
+            String newDir = copyDataDir(dataDir,context);
             dataDir = newDir + "/" + dataDir;
         }
 
         if (dictDir != null && !dictDir.isEmpty()) {
-            String newDir = copyDataDir(dictDir);
+            String newDir = copyDataDir(dictDir,context);
             dictDir = newDir + "/" + dictDir;
             if (ruleFsts == null || ruleFsts.isEmpty()) {
                 ruleFsts = modelDir + "/phone.fst," + modelDir + "/date.fst," + modelDir + "/number.fst";
@@ -281,8 +270,18 @@ public class TextToSpeech {
         }
 
         OfflineTtsConfig config = getOfflineTtsConfig(
-                modelDir, modelName, acousticModelName, vocoder, voices,
-                lexicon, dataDir, dictDir, ruleFsts, ruleFars,null, isKitten
+            modelDir,
+            modelName,
+            acousticModelName,
+            vocoder,
+            voices,
+            lexicon,
+            dataDir,
+            dictDir,
+            ruleFsts,
+            ruleFars,
+            null,
+            isKitten
         );
 
         tts = new OfflineTts(config);
@@ -294,42 +293,33 @@ public class TextToSpeech {
         }
 
         int sampleRate = tts.getSampleRate();
-        int bufLength = AudioTrack.getMinBufferSize(
-                sampleRate,
-                AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_FLOAT
-        );
+        int bufLength = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT);
 
         Log.i(TAG, "sampleRate: " + sampleRate + ", buffLength: " + bufLength);
 
         AudioAttributes attr = new AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .build();
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .build();
 
         AudioFormat format = new AudioFormat.Builder()
-                .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                .setSampleRate(sampleRate)
-                .build();
+            .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+            .setSampleRate(sampleRate)
+            .build();
 
-        track = new AudioTrack(
-                attr, format, bufLength, AudioTrack.MODE_STREAM,
-                AudioManager.AUDIO_SESSION_ID_GENERATE
-        );
+        track = new AudioTrack(attr, format, bufLength, AudioTrack.MODE_STREAM, AudioManager.AUDIO_SESSION_ID_GENERATE);
         track.play();
     }
 
-    public JSObject generateSpeech(String text, int sid, float speed){
+    public JSObject generateSpeech(String text, int sid, float speed,Context context) {
         track.pause();
         track.flush();
         track.play();
 
-        GeneratedAudio audio = tts.generateWithCallback(
-                text, sid, speed, this::audioCallback
-        );
+        GeneratedAudio audio = tts.generateWithCallback(text, sid, speed, this::audioCallback);
 
-        String filename = Plugin.getContext().getFilesDir().getAbsolutePath() + "/" + outputFilename;
+        String filename = context.getFilesDir().getAbsolutePath() + "/" + outputFilename;
         boolean success = audio.getSamples().length > 0 && audio.save(filename);
         if (success) {
             JSObject result = new JSObject();
@@ -351,10 +341,9 @@ public class TextToSpeech {
             track.release();
             track = null;
         }
-        if(tts!=null){
+        if (tts != null) {
             tts.release();
-            tts=null;
+            tts = null;
         }
     }
-
 }

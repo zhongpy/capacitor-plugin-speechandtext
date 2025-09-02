@@ -5,17 +5,17 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @CapacitorPlugin(name = "SpeechAndText")
 public class SpeechAndTextPlugin extends Plugin {
+
     private static final String TAG = "SpeechAndTextPlugin";
     private final SpeechAndText implementation = new SpeechAndText();
 
-    private SpeechToText stt=null;
-    private TextToSpeech tts=null;
+    private SpeechToText stt = null;
+    private TextToSpeech tts = null;
 
     private ExecutorService ttsExecutor;
     private ExecutorService recordingExecutor;
@@ -31,18 +31,18 @@ public class SpeechAndTextPlugin extends Plugin {
     }
 
     @PluginMethod
-    public void InitSTT(PluginCall call){
-        try{
-            if(stt==null){
-                stt=new SpeechToText();
-                stt.initModel(21);
+    public void InitSTT(PluginCall call) {
+        try {
+            if (stt == null) {
+                stt = new SpeechToText();
+                stt.initModel(21,getContext());
             }
             call.resolve();
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             call.reject("Failed to initialize: " + e.getMessage());
         }
     }
+
     @PluginMethod
     public void startRecording(PluginCall call) {
         if (stt.isRecording()) {
@@ -50,34 +50,32 @@ public class SpeechAndTextPlugin extends Plugin {
             return;
         }
 
-        if (!stt.checkMicrophonePermission()) {
+        if (!stt.checkMicrophonePermission(getContext())) {
             call.reject("Microphone permission required");
             return;
         }
 
-        if (!stt.initMicrophone()) {
+        if (!stt.initMicrophone(getContext(),getActivity())) {
             call.reject("Failed to initialize microphone");
             return;
         }
 
         try {
             stt.startRecording();
-            SpeechToText.RecognizerCallback callback = (text,isEndpoint) -> {
+            SpeechToText.RecognizerCallback callback = (text, isEndpoint) -> {
                 JSObject result = new JSObject();
                 result.put("text", text);
                 result.put("isEndpoint", isEndpoint);
                 notifyListeners("onRecognizerResult", result);
             };
             recordingExecutor = Executors.newSingleThreadExecutor();
-            recordingExecutor.execute(()->{
-                try{
+            recordingExecutor.execute(() -> {
+                try {
                     stt.processSamples(callback);
                     call.resolve();
-                }
-                catch (Exception e){
+                } catch (Exception e) {
                     call.reject("Recognizer failed: " + e.getMessage());
                 }
-
             });
             call.resolve();
         } catch (Exception e) {
@@ -91,38 +89,36 @@ public class SpeechAndTextPlugin extends Plugin {
             call.reject("Not recording");
             return;
         }
-        try{
+        try {
             if (recordingExecutor != null) {
                 recordingExecutor.shutdown();
                 recordingExecutor = null;
             }
             stt.stopRecording();
             call.resolve();
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             call.reject("Failed to stop recording: " + e.getMessage());
         }
     }
 
     @PluginMethod
     public void checkPermission(PluginCall call) {
-        boolean hasPermission = stt.checkMicrophonePermission();
+        boolean hasPermission = stt.checkMicrophonePermission(getContext());
         JSObject result = new JSObject();
         result.put("hasPermission", hasPermission);
         call.resolve(result);
     }
 
     @PluginMethod
-    public void InitTTS(PluginCall call){
-        try{
-            if(tts==null){
-                tts=new TextToSpeech();
-                tts.initTTS();
+    public void InitTTS(PluginCall call) {
+        try {
+            if (tts == null) {
+                tts = new TextToSpeech();
+                tts.initTTS(getContext());
                 tts.initAudioTrack();
             }
             call.resolve();
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             call.reject("Failed to initialize: " + e.getMessage());
         }
     }
@@ -148,8 +144,8 @@ public class SpeechAndTextPlugin extends Plugin {
         ttsExecutor = Executors.newSingleThreadExecutor();
         ttsExecutor.execute(() -> {
             try {
-                JSObject result=tts.generateSpeech(text,sid,speed);
-                if(result!=null){
+                JSObject result = tts.generateSpeech(text, sid, speed,getContext());
+                if (result != null) {
                     notifyListeners("onGenerationComplete", result);
                     call.resolve(result);
                 }
@@ -158,5 +154,4 @@ public class SpeechAndTextPlugin extends Plugin {
             }
         });
     }
-
 }

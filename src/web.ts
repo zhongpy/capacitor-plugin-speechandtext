@@ -7,30 +7,30 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     console.log('ECHO', options);
     return options;
   }
-  async InitSTT():Promise<{ value: string }>{
-    var result={value:""};
+  async InitSTT(): Promise<{ value: string }> {
+    const result = { value: '' };
     return result;
   }
 
-  async startRecording():Promise<{ text: string, isEndpoint:boolean }>{
-    var result={text:"",isEndpoint:true};
+  async startRecording(): Promise<{ text: string; isEndpoint: boolean }> {
+    const result = { text: '', isEndpoint: true };
     return result;
   }
 
-  async stopRecording():Promise<{ value: string }>{
-    var result={value:""};
+  async stopRecording(): Promise<{ value: string }> {
+    const result = { value: '' };
     return result;
   }
-  async checkPermission():Promise<{hasPermission:boolean}>{
-    var result={hasPermission:false};
+  async checkPermission(): Promise<{ hasPermission: boolean }> {
+    const result = { hasPermission: false };
     return result;
   }
-  async InitTTS():Promise<{ value: string }>{
-    var result={value:""};
+  async InitTTS(): Promise<{ value: string }> {
+    const result = { value: '' };
     return result;
   }
-  async generateSpeech(options:{text:string,sid:number,speed:number}):Promise<{ value: string }>{
-    var result={value:""};
+  async generateSpeech(options: { text: string; sid: number; speed: number }): Promise<{ value: string }> {
+    const result = { value: '' };
     console.log('generateSpeech', options);
     return result;
   }

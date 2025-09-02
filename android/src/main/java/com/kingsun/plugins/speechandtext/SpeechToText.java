@@ -1,45 +1,42 @@
 package com.kingsun.plugins.speechandtext;
 
-import com.getcapacitor.Plugin;
-
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.util.Log;
-
+import androidx.core.app.ActivityCompat;
+import com.getcapacitor.Plugin;
+import com.k2fsa.sherpa.onnx.EndpointConfig;
+import com.k2fsa.sherpa.onnx.FeatureConfig;
 import com.k2fsa.sherpa.onnx.HomophoneReplacerConfig;
+import com.k2fsa.sherpa.onnx.OnlineModelConfig;
 import com.k2fsa.sherpa.onnx.OnlineNeMoCtcModelConfig;
 import com.k2fsa.sherpa.onnx.OnlineParaformerModelConfig;
 import com.k2fsa.sherpa.onnx.OnlineRecognizer;
 import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig;
-import com.k2fsa.sherpa.onnx.FeatureConfig;
-import com.k2fsa.sherpa.onnx.OnlineModelConfig;
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
 import com.k2fsa.sherpa.onnx.OnlineZipformer2CtcModelConfig;
-import com.k2fsa.sherpa.onnx.EndpointConfig;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import android.media.AudioFormat;
-import android.media.AudioRecord;
-import android.media.MediaRecorder;
-
-import androidx.core.app.ActivityCompat;
-
 public class SpeechToText {
+
     public interface RecognizerCallback {
-        void onMessage(String text,boolean isEndpoint);
+        void onMessage(String text, boolean isEndpoint);
     }
+
     private OnlineRecognizer recognizer;
     private Integer sampleRateInHz = 16000;
     private static final String TAG = "SpeechToText";
     private static final Integer REQUEST_RECORD_AUDIO_PERMISSION = 200;
-    private static final String[] permissions = {Manifest.permission.RECORD_AUDIO};
+    private static final String[] permissions = { Manifest.permission.RECORD_AUDIO };
     private AudioRecord audioRecord;
     private final int channelConfig = AudioFormat.CHANNEL_IN_MONO;
     private final int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
@@ -51,29 +48,28 @@ public class SpeechToText {
 
     private OnlineRecognizerConfig OnlineRconfig = null;
 
-    public boolean checkMicrophonePermission() {
-        Context context = getAppContext();
+    public boolean checkMicrophonePermission(Context context) {
         if (context == null) return false;
 
-        return ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED;
+        return ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
-    public void initModel(Integer type){
+
+    public void initModel(Integer type,Context context) {
         String ruleFsts = null;
 
         boolean useHr = false;
-        HomophoneReplacerConfig.Builder builder=HomophoneReplacerConfig.builder();
+        HomophoneReplacerConfig.Builder builder = HomophoneReplacerConfig.builder();
         builder.setDictDir("dict");
         builder.setLexicon("lexicon.txt");
         builder.setRuleFsts("replace.fst");
         HomophoneReplacerConfig hr = builder.build();
 
         Log.i(TAG, "Select model type " + type);
-        OnlineRecognizerConfig.Builder orbuilder=OnlineRecognizerConfig.builder();
-        FeatureConfig fconfig=FeatureConfig.builder().setSampleRate(sampleRateInHz).setFeatureDim(80).build();
+        OnlineRecognizerConfig.Builder orbuilder = OnlineRecognizerConfig.builder();
+        FeatureConfig fconfig = FeatureConfig.builder().setSampleRate(sampleRateInHz).setFeatureDim(80).build();
         orbuilder.setFeatureConfig(fconfig);
         orbuilder.setOnlineModelConfig(getModelConfig(type));
-        EndpointConfig econfig=EndpointConfig.builder().build();
+        EndpointConfig econfig = EndpointConfig.builder().build();
         orbuilder.setEndpointConfig(econfig);
         if (ruleFsts != null) {
             orbuilder.setRuleFsts(ruleFsts);
@@ -83,7 +79,7 @@ public class SpeechToText {
         if (useHr) {
             if (!hr.getDictDir().isEmpty() && hr.getDictDir().charAt(0) != '/') {
                 // We need to copy it from the assets directory to some path
-                String newDir = copyDataDir(hr.getDictDir());
+                String newDir = copyDataDir(hr.getDictDir(),context);
                 builder.setDictDir(newDir + "/" + hr.getDictDir());
                 hr = builder.build();
             }
@@ -94,39 +90,26 @@ public class SpeechToText {
         recognizer = new OnlineRecognizer(OnlineRconfig);
     }
 
-    public boolean initMicrophone() {
-        Context context = getAppContext();
-        Activity activity = getAppActivity();
+    public boolean initMicrophone(Context context,Activity activity) {
 
         if (context == null || activity == null) {
             Log.e(TAG, "Context or Activity is null");
             return false;
         }
 
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
-
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             // 请求权限
-            ActivityCompat.requestPermissions(activity,
-                    new String[]{Manifest.permission.RECORD_AUDIO},
-                    REQUEST_RECORD_AUDIO_PERMISSION);
+            ActivityCompat.requestPermissions(activity, new String[] { Manifest.permission.RECORD_AUDIO }, REQUEST_RECORD_AUDIO_PERMISSION);
             return false;
         }
 
         try {
             int numBytes = AudioRecord.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
-            Log.i(TAG, "buffer size in milliseconds: " + (numBytes * 1000.0f / sampleRateInHz));
+            Log.i(TAG, "buffer size in milliseconds: " + ((numBytes * 1000.0f) / sampleRateInHz));
 
-            audioRecord = new AudioRecord(
-                    audioSource,
-                    sampleRateInHz,
-                    channelConfig,
-                    audioFormat,
-                    numBytes * 2
-            );
+            audioRecord = new AudioRecord(audioSource, sampleRateInHz, channelConfig, audioFormat, numBytes * 2);
 
             return audioRecord.getState() == AudioRecord.STATE_INITIALIZED;
-
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize AudioRecord: " + e.getMessage());
             return false;
@@ -190,8 +173,7 @@ public class SpeechToText {
                             idx++;
                         }
                     }
-                    callback.onMessage(textToDisplay,isEndpoint);
-
+                    callback.onMessage(textToDisplay, isEndpoint);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error processing samples", e);
@@ -201,19 +183,19 @@ public class SpeechToText {
         stream.release();
     }
 
-    public boolean isRecording(){
+    public boolean isRecording() {
         return isRecording;
     }
 
-    public void startRecording(){
+    public void startRecording() {
         audioRecord.startRecording();
         isRecording = true;
         idx = 0;
         lastText = "";
     }
 
-    public void stopRecording(){
-        if(!isRecording){
+    public void stopRecording() {
+        if (!isRecording) {
             return;
         }
         isRecording = false;
@@ -239,45 +221,38 @@ public class SpeechToText {
 
         if (recognizer != null) {
             recognizer.release();
-            recognizer=null;
+            recognizer = null;
         }
     }
 
-    private Context getAppContext() {
-        return Plugin.getContext(); // Capacitor Plugin 提供的 getContext() 方法
-    }
-
-    private Activity getAppActivity() {
-        return Plugin.getActivity(); // Capacitor Plugin 提供的 getActivity() 方法
-    }
-    private String copyDataDir(String dataDir) {
+    private String copyDataDir(String dataDir,Context context) {
         Log.i(TAG, "data dir is " + dataDir);
-        copyAssets(dataDir);
+        copyAssets(dataDir,context);
 
-        File externalDir = getAppContext().getExternalFilesDir(null);
+        File externalDir = context.getExternalFilesDir(null);
         if (externalDir == null) {
-            externalDir = getAppContext().getFilesDir();
+            externalDir = context.getFilesDir();
         }
         String newDataDir = externalDir.getAbsolutePath();
         Log.i(TAG, "newDataDir: " + newDataDir);
         return newDataDir;
     }
 
-    private void copyAssets(String path) {
+    private void copyAssets(String path,Context context) {
         try {
-            String[] assets = getAppContext().getAssets().list(path);
+            String[] assets = context.getAssets().list(path);
             if (assets == null) {
                 // 可能是文件
-                copyFile(path);
+                copyFile(path,context);
             } else if (assets.length == 0) {
                 // 空目录
-                createDirectory(path);
+                createDirectory(path,context);
             } else {
                 // 目录，递归复制
-                createDirectory(path);
+                createDirectory(path,context);
                 for (String asset : assets) {
                     String newPath = path.equals("") ? asset : path + "/" + asset;
-                    copyAssets(newPath);
+                    copyAssets(newPath,context);
                 }
             }
         } catch (IOException ex) {
@@ -285,20 +260,20 @@ public class SpeechToText {
         }
     }
 
-    private void createDirectory(String path) {
-        String fullPath = getAppContext().getExternalFilesDir(null) + "/" + path;
+    private void createDirectory(String path,Context context) {
+        String fullPath = context.getExternalFilesDir(null) + "/" + path;
         File dir = new File(fullPath);
         if (!dir.exists()) {
             dir.mkdirs();
         }
     }
 
-    private void copyFile(String filename) {
+    private void copyFile(String filename,Context context) {
         InputStream istream = null;
         OutputStream ostream = null;
         try {
-            istream = getAppContext().getAssets().open(filename);
-            String newFilename = getAppContext().getExternalFilesDir(null) + "/" + filename;
+            istream = context.getAssets().open(filename);
+            String newFilename = context.getExternalFilesDir(null) + "/" + filename;
 
             // 确保父目录存在
             File outFile = new File(newFilename);
@@ -336,359 +311,356 @@ public class SpeechToText {
             case 0: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-99-avg-1.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-99-avg-1.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-99-avg-1.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-99-avg-1.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .build();
             }
-
             case 1: {
                 String modelDir = "sherpa-onnx-lstm-zh-2023-02-20";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-11-avg-1.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-11-avg-1.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-11-avg-1.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("lstm")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-11-avg-1.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-11-avg-1.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-11-avg-1.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("lstm")
+                    .build();
             }
-
             case 2: {
                 String modelDir = "sherpa-onnx-lstm-en-2023-02-17";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-99-avg-1.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-99-avg-1.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("lstm")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-99-avg-1.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-99-avg-1.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("lstm")
+                    .build();
             }
-
             case 3: {
                 String modelDir = "icefall-asr-zipformer-streaming-wenetspeech-20230615";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/exp/encoder-epoch-12-avg-4-chunk-16-left-128.int8.onnx")
-                                .setDecoder(modelDir + "/exp/decoder-epoch-12-avg-4-chunk-16-left-128.onnx")
-                                .setJoiner(modelDir + "/exp/joiner-epoch-12-avg-4-chunk-16-left-128.onnx")
-                                .build())
-                        .setTokens(modelDir + "/data/lang_char/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/exp/encoder-epoch-12-avg-4-chunk-16-left-128.int8.onnx")
+                            .setDecoder(modelDir + "/exp/decoder-epoch-12-avg-4-chunk-16-left-128.onnx")
+                            .setJoiner(modelDir + "/exp/joiner-epoch-12-avg-4-chunk-16-left-128.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/data/lang_char/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 4: {
                 String modelDir = "icefall-asr-zipformer-streaming-wenetspeech-20230615";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/exp/encoder-epoch-12-avg-4-chunk-16-left-128.onnx")
-                                .setDecoder(modelDir + "/exp/decoder-epoch-12-avg-4-chunk-16-left-128.onnx")
-                                .setJoiner(modelDir + "/exp/joiner-epoch-12-avg-4-chunk-16-left-128.onnx")
-                                .build())
-                        .setTokens(modelDir + "/data/lang_char/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/exp/encoder-epoch-12-avg-4-chunk-16-left-128.onnx")
+                            .setDecoder(modelDir + "/exp/decoder-epoch-12-avg-4-chunk-16-left-128.onnx")
+                            .setJoiner(modelDir + "/exp/joiner-epoch-12-avg-4-chunk-16-left-128.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/data/lang_char/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 5: {
                 String modelDir = "sherpa-onnx-streaming-paraformer-bilingual-zh-en";
                 return OnlineModelConfig.builder()
-                        .setParaformer(OnlineParaformerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.int8.onnx")
-                                .setDecoder(modelDir + "/decoder.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("paraformer")
-                        .build();
+                    .setParaformer(
+                        OnlineParaformerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.int8.onnx")
+                            .setDecoder(modelDir + "/decoder.int8.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("paraformer")
+                    .build();
             }
-
             case 6: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-en-2023-06-26";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-99-avg-1-chunk-16-left-128.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-99-avg-1-chunk-16-left-128.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-99-avg-1-chunk-16-left-128.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-99-avg-1-chunk-16-left-128.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 7: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-fr-2023-04-14";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-29-avg-9-with-averaged-model.int8.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-29-avg-9-with-averaged-model.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-29-avg-9-with-averaged-model.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-29-avg-9-with-averaged-model.int8.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-29-avg-9-with-averaged-model.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-29-avg-9-with-averaged-model.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .build();
             }
-
             case 8: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .build();
             }
-
             case 9: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .build();
             }
-
             case 10: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .build();
             }
-
             case 11: {
                 String modelDir = "sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-80ms";
                 return OnlineModelConfig.builder()
-                        .setNeMoCtc(OnlineNeMoCtcModelConfig.builder()
-                                .setModel(modelDir + "/model.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .build();
+                    .setNeMoCtc(OnlineNeMoCtcModelConfig.builder().setModel(modelDir + "/model.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .build();
             }
-
             case 12: {
                 String modelDir = "sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-480ms";
                 return OnlineModelConfig.builder()
-                        .setNeMoCtc(OnlineNeMoCtcModelConfig.builder()
-                                .setModel(modelDir + "/model.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .build();
+                    .setNeMoCtc(OnlineNeMoCtcModelConfig.builder().setModel(modelDir + "/model.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .build();
             }
-
             case 13: {
                 String modelDir = "sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-1040ms";
                 return OnlineModelConfig.builder()
-                        .setNeMoCtc(OnlineNeMoCtcModelConfig.builder()
-                                .setModel(modelDir + "/model.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .build();
+                    .setNeMoCtc(OnlineNeMoCtcModelConfig.builder().setModel(modelDir + "/model.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .build();
             }
-
             case 14: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-korean-2024-06-16";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
-                                .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
-                                .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder-epoch-99-avg-1.int8.onnx")
+                            .setDecoder(modelDir + "/decoder-epoch-99-avg-1.onnx")
+                            .setJoiner(modelDir + "/joiner-epoch-99-avg-1.int8.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .build();
             }
-
             case 15: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01";
                 return OnlineModelConfig.builder()
-                        .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder()
-                                .setModel(modelDir + "/model.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .build();
+                    .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder().setModel(modelDir + "/model.int8.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .build();
             }
-
             case 16: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-small-ctc-zh-2025-04-01";
                 return OnlineModelConfig.builder()
-                        .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder()
-                                .setModel(modelDir + "/model.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .build();
+                    .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder().setModel(modelDir + "/model.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .build();
             }
-
             case 17: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-ctc-zh-int8-2025-06-30";
                 return OnlineModelConfig.builder()
-                        .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder()
-                                .setModel(modelDir + "/model.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .build();
+                    .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder().setModel(modelDir + "/model.int8.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .build();
             }
-
             case 18: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-ctc-zh-2025-06-30";
                 return OnlineModelConfig.builder()
-                        .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder()
-                                .setModel(modelDir + "/model.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder().setModel(modelDir + "/model.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 19: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-ctc-zh-fp16-2025-06-30";
                 return OnlineModelConfig.builder()
-                        .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder()
-                                .setModel(modelDir + "/model.fp16.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setZipformer2Ctc(OnlineZipformer2CtcModelConfig.builder().setModel(modelDir + "/model.fp16.onnx").build())
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 20: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.int8.onnx")
-                                .setDecoder(modelDir + "/decoder.onnx")
-                                .setJoiner(modelDir + "/joiner.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.int8.onnx")
+                            .setDecoder(modelDir + "/decoder.onnx")
+                            .setJoiner(modelDir + "/joiner.int8.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 21: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.onnx")
-                                .setDecoder(modelDir + "/decoder.onnx")
-                                .setJoiner(modelDir + "/joiner.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.onnx")
+                            .setDecoder(modelDir + "/decoder.onnx")
+                            .setJoiner(modelDir + "/joiner.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 22: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-es-kroko-2025-08-06";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.onnx")
-                                .setDecoder(modelDir + "/decoder.onnx")
-                                .setJoiner(modelDir + "/joiner.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.onnx")
+                            .setDecoder(modelDir + "/decoder.onnx")
+                            .setJoiner(modelDir + "/joiner.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 23: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-fr-kroko-2025-08-06";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.onnx")
-                                .setDecoder(modelDir + "/decoder.onnx")
-                                .setJoiner(modelDir + "/joiner.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.onnx")
+                            .setDecoder(modelDir + "/decoder.onnx")
+                            .setJoiner(modelDir + "/joiner.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 24: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-de-kroko-2025-08-06";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.onnx")
-                                .setDecoder(modelDir + "/decoder.onnx")
-                                .setJoiner(modelDir + "/joiner.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.onnx")
+                            .setDecoder(modelDir + "/decoder.onnx")
+                            .setJoiner(modelDir + "/joiner.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 25: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.int8.onnx")
-                                .setDecoder(modelDir + "/decoder.onnx")
-                                .setJoiner(modelDir + "/joiner.int8.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.int8.onnx")
+                            .setDecoder(modelDir + "/decoder.onnx")
+                            .setJoiner(modelDir + "/joiner.int8.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 26: {
                 String modelDir = "sherpa-onnx-streaming-zipformer-small-ru-vosk-2025-08-16";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.onnx")
-                                .setDecoder(modelDir + "/decoder.onnx")
-                                .setJoiner(modelDir + "/joiner.onnx")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer2")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.onnx")
+                            .setDecoder(modelDir + "/decoder.onnx")
+                            .setJoiner(modelDir + "/joiner.onnx")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer2")
+                    .build();
             }
-
             case 1000: {
                 String modelDir = "sherpa-onnx-rk3588-streaming-zipformer-bilingual-zh-en-2023-02-20";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.rknn")
-                                .setDecoder(modelDir + "/decoder.rknn")
-                                .setJoiner(modelDir + "/joiner.rknn")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .setProvider("rknn")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.rknn")
+                            .setDecoder(modelDir + "/decoder.rknn")
+                            .setJoiner(modelDir + "/joiner.rknn")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .setProvider("rknn")
+                    .build();
             }
-
             case 1001: {
                 String modelDir = "sherpa-onnx-rk3588-streaming-zipformer-small-bilingual-zh-en-2023-02-16";
                 return OnlineModelConfig.builder()
-                        .setTransducer(OnlineTransducerModelConfig.builder()
-                                .setEncoder(modelDir + "/encoder.rknn")
-                                .setDecoder(modelDir + "/decoder.rknn")
-                                .setJoiner(modelDir + "/joiner.rknn")
-                                .build())
-                        .setTokens(modelDir + "/tokens.txt")
-                        .setModelType("zipformer")
-                        .setProvider("rknn")
-                        .build();
+                    .setTransducer(
+                        OnlineTransducerModelConfig.builder()
+                            .setEncoder(modelDir + "/encoder.rknn")
+                            .setDecoder(modelDir + "/decoder.rknn")
+                            .setJoiner(modelDir + "/joiner.rknn")
+                            .build()
+                    )
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setModelType("zipformer")
+                    .setProvider("rknn")
+                    .build();
             }
-
             default:
                 return null;
         }
