@@ -1,6 +1,6 @@
 {
   "name": "capacitor-plugin-speechandtext",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "This plugin was used by generate the speech, recognize the speech to text.",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
