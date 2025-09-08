@@ -18,7 +18,9 @@ export interface SpeechAndTextPlugin {
     checkPermission(): Promise<{
         hasPermission: boolean;
     }>;
-    InitTTS(): Promise<{
+    InitTTS(options: {
+        type: number;
+    }): Promise<{
         value: string;
     }>;
     generateSpeech(options: {

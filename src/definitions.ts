@@ -7,7 +7,7 @@ export interface SpeechAndTextPlugin {
   stopRecording(): Promise<{ value: string }>;
   checkPermission(): Promise<{ hasPermission: boolean }>;
 
-  InitTTS(): Promise<{ value: string }>;
+  InitTTS(options: { type: number }): Promise<{ value: string }>;
   generateSpeech(options: { text: string; sid: number; speed: number }): Promise<{ value: string }>;
 
   addListener(

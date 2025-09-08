@@ -27,8 +27,9 @@ class SpeechAndTextWeb extends core.WebPlugin {
         const result = { hasPermission: false };
         return result;
     }
-    async InitTTS() {
+    async InitTTS(options) {
         const result = { value: '' };
+        console.log('InitTTS', options);
         return result;
     }
     async generateSpeech(options) {

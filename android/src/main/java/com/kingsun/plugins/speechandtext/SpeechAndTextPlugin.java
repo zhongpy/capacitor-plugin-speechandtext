@@ -113,10 +113,11 @@ public class SpeechAndTextPlugin extends Plugin {
 
     @PluginMethod
     public void InitTTS(PluginCall call) {
+        int type = call.getInt("type", 0);
         try {
             if (tts == null) {
                 tts = new TextToSpeech();
-                tts.initTTS(getContext());
+                tts.initTTS(type, getContext());
                 //tts.initAudioTrack();
             }
             JSObject ret = new JSObject();

@@ -19,7 +19,9 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
     checkPermission(): Promise<{
         hasPermission: boolean;
     }>;
-    InitTTS(): Promise<{
+    InitTTS(options: {
+        type: number;
+    }): Promise<{
         value: string;
     }>;
     generateSpeech(options: {

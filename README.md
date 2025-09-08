@@ -18,7 +18,7 @@ npx cap sync
 * [`startRecording()`](#startrecording)
 * [`stopRecording()`](#stoprecording)
 * [`checkPermission()`](#checkpermission)
-* [`InitTTS()`](#inittts)
+* [`InitTTS(...)`](#inittts)
 * [`generateSpeech(...)`](#generatespeech)
 * [`addListener('onRecognizerResult', ...)`](#addlisteneronrecognizerresult-)
 * [`addListener('onGenerationComplete', ...)`](#addlistenerongenerationcomplete-)
@@ -88,11 +88,15 @@ checkPermission() => any
 --------------------
 
 
-### InitTTS()
+### InitTTS(...)
 
 ```typescript
-InitTTS() => any
+InitTTS(options: { type: number; }) => any
 ```
+
+| Param         | Type                           |
+| ------------- | ------------------------------ |
+| **`options`** | <code>{ type: number; }</code> |
 
 **Returns:** <code>any</code>
 

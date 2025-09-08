@@ -25,8 +25,9 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     const result = { hasPermission: false };
     return result;
   }
-  async InitTTS(): Promise<{ value: string }> {
+  async InitTTS(options: { type: number }): Promise<{ value: string }> {
     const result = { value: '' };
+    console.log('InitTTS', options);
     return result;
   }
   async generateSpeech(options: { text: string; sid: number; speed: number }): Promise<{ value: string }> {

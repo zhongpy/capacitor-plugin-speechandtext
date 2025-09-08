@@ -63,8 +63,14 @@
       },
       {
         "name": "InitTTS",
-        "signature": "() => any",
-        "parameters": [],
+        "signature": "(options: { type: number; }) => any",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ type: number; }"
+          }
+        ],
         "returns": "any",
         "tags": [],
         "docs": "",

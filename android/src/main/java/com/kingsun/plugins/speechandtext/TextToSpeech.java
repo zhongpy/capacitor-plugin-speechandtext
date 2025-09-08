@@ -258,11 +258,37 @@ public class TextToSpeech {
         }
     }
 
-    public void initTTS(Context context) {
+    public void initTTS(int type, Context context) {
         // 以 piper 的 VITS 英文模型为例
-        String modelDir = "vits-piper-en_US-miro-high";
-        String modelName = "en_US-miro-high.onnx";
-        String dataDir = "vits-piper-en_US-miro-high/espeak-ng-data"; // 目录
+        String vitsName = "en_US-kristin-medium";
+        switch (type) {
+            case 0: {
+                vitsName = "en_US-kristin-medium";
+            }
+            case 1: {
+                vitsName = "en_US-bryce-medium";
+            }
+            case 2: {
+                vitsName = "en_GB-alan-medium";
+            }
+            case 3: {
+                vitsName = "en_GB-cori-medium";
+            }
+            case 4: {
+                vitsName = "zh_CN-huayan-medium";
+            }
+            case 5: {
+                vitsName = "fr_FR-siwis-medium";
+            }
+            case 6: {
+                vitsName = "fr_FR-tom-medium";
+            }
+            default:
+                vitsName = "en_US-kristin-medium";
+        }
+        String modelDir = "vits-piper-" + vitsName;
+        String modelName = vitsName + ".onnx";
+        String dataDir = "vits-piper-" + vitsName + "/espeak-ng-data"; // 目录
         String ruleFsts = null; // 会在 getOfflineTtsConfig 内转成 ""
         String ruleFars = null;
         String lexicon = ""; // 英文 piper 通常不需要 lexicon，显式设为空串
