@@ -57,7 +57,7 @@ public class SpeechToText {
         return ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
     }
 
-    public void initModel(Integer type, Context context) {
+    public void initModel(Integer itype, Context context) {
         String ruleFsts = null;
 
         boolean useHr = false;
@@ -67,11 +67,11 @@ public class SpeechToText {
         builder.setRuleFsts("replace.fst");
         HomophoneReplacerConfig hr = builder.build();
 
-        Log.i(TAG, "Select model type " + type);
+        Log.i(TAG, "Select model type " + itype);
         OnlineRecognizerConfig.Builder orbuilder = OnlineRecognizerConfig.builder();
         FeatureConfig fconfig = FeatureConfig.builder().setSampleRate(sampleRateInHz).setFeatureDim(80).build();
         orbuilder.setFeatureConfig(fconfig);
-        orbuilder.setOnlineModelConfig(getModelConfig(type, context));
+        orbuilder.setOnlineModelConfig(getModelConfig(itype, context));
         EndpointConfig econfig = EndpointConfig.builder().build();
         orbuilder.setEndpointConfig(econfig);
         if (ruleFsts != null) {

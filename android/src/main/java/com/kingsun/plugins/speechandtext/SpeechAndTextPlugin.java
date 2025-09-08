@@ -32,11 +32,11 @@ public class SpeechAndTextPlugin extends Plugin {
 
     @PluginMethod
     public void InitSTT(PluginCall call) {
-        int type = call.getInt("type", 21);
+        int itype = call.getInt("itype", 21);
         try {
             if (stt == null) {
                 stt = new SpeechToText();
-                stt.initModel(type, getContext());
+                stt.initModel(itype, getContext());
             }
             JSObject ret = new JSObject();
             ret.put("value", "Init STT Success!");
@@ -114,11 +114,11 @@ public class SpeechAndTextPlugin extends Plugin {
 
     @PluginMethod
     public void InitTTS(PluginCall call) {
-        int type = call.getInt("type", 0);
+        Integer itype = call.getInt("itype", 0);
         try {
             if (tts == null) {
                 tts = new TextToSpeech();
-                tts.initTTS(type, getContext());
+                tts.initTTS(itype, getContext());
                 //tts.initAudioTrack();
             }
             JSObject ret = new JSObject();

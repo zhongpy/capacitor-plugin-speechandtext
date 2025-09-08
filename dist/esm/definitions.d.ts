@@ -6,7 +6,7 @@ export interface SpeechAndTextPlugin {
         value: string;
     }>;
     InitSTT(options: {
-        type: number;
+        itype: number;
     }): Promise<{
         value: string;
     }>;
@@ -21,7 +21,7 @@ export interface SpeechAndTextPlugin {
         hasPermission: boolean;
     }>;
     InitTTS(options: {
-        type: number;
+        itype: number;
     }): Promise<{
         value: string;
     }>;

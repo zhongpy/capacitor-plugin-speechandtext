@@ -258,10 +258,10 @@ public class TextToSpeech {
         }
     }
 
-    public void initTTS(int type, Context context) {
+    public void initTTS(Integer itype, Context context) {
         // 以 piper 的 VITS 英文模型为例
         String vitsName = "en_US-kristin-medium";
-        switch (type) {
+        switch (itype) {
             case 0: {
                 vitsName = "en_US-kristin-medium";
             }
@@ -286,6 +286,7 @@ public class TextToSpeech {
             default:
                 vitsName = "en_US-kristin-medium";
         }
+        Log.i(TAG, "initTTS type:" + itype + " vitsName:" + vitsName);
         String modelDir = "vits-piper-" + vitsName;
         String modelName = vitsName + ".onnx";
         String dataDir = "vits-piper-" + vitsName + "/espeak-ng-data"; // 目录

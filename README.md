@@ -47,12 +47,12 @@ echo(options: { value: string; }) => any
 ### InitSTT(...)
 
 ```typescript
-InitSTT(options: { type: number; }) => any
+InitSTT(options: { itype: number; }) => any
 ```
 
-| Param         | Type                           |
-| ------------- | ------------------------------ |
-| **`options`** | <code>{ type: number; }</code> |
+| Param         | Type                            |
+| ------------- | ------------------------------- |
+| **`options`** | <code>{ itype: number; }</code> |
 
 **Returns:** <code>any</code>
 
@@ -95,12 +95,12 @@ checkPermission() => any
 ### InitTTS(...)
 
 ```typescript
-InitTTS(options: { type: number; }) => any
+InitTTS(options: { itype: number; }) => any
 ```
 
-| Param         | Type                           |
-| ------------- | ------------------------------ |
-| **`options`** | <code>{ type: number; }</code> |
+| Param         | Type                            |
+| ------------- | ------------------------------- |
+| **`options`** | <code>{ itype: number; }</code> |
 
 **Returns:** <code>any</code>
 

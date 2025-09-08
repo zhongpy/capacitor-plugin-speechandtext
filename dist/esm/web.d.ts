@@ -7,7 +7,7 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
         value: string;
     }>;
     InitSTT(options: {
-        type: number;
+        itype: number;
     }): Promise<{
         value: string;
     }>;
@@ -22,7 +22,7 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
         hasPermission: boolean;
     }>;
     InitTTS(options: {
-        type: number;
+        itype: number;
     }): Promise<{
         value: string;
     }>;
