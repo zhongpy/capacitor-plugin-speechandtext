@@ -6,7 +6,9 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
     }): Promise<{
         value: string;
     }>;
-    InitSTT(): Promise<{
+    InitSTT(options: {
+        type: number;
+    }): Promise<{
         value: string;
     }>;
     startRecording(): Promise<{

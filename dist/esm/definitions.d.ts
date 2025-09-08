@@ -5,7 +5,9 @@ export interface SpeechAndTextPlugin {
     }): Promise<{
         value: string;
     }>;
-    InitSTT(): Promise<{
+    InitSTT(options: {
+        type: number;
+    }): Promise<{
         value: string;
     }>;
     startRecording(): Promise<{

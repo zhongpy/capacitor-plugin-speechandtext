@@ -10,8 +10,9 @@ var capacitorSpeechAndText = (function (exports, core) {
             console.log('ECHO', options);
             return options;
         }
-        async InitSTT() {
+        async InitSTT(options) {
             const result = { value: '' };
+            console.log('InitSTT', options);
             return result;
         }
         async startRecording() {

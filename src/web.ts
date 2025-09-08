@@ -7,8 +7,9 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     console.log('ECHO', options);
     return options;
   }
-  async InitSTT(): Promise<{ value: string }> {
+  async InitSTT(options: { type: number }): Promise<{ value: string }> {
     const result = { value: '' };
+    console.log('InitSTT', options);
     return result;
   }
 

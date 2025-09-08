@@ -14,7 +14,7 @@ npx cap sync
 <docgen-index>
 
 * [`echo(...)`](#echo)
-* [`InitSTT()`](#initstt)
+* [`InitSTT(...)`](#initstt)
 * [`startRecording()`](#startrecording)
 * [`stopRecording()`](#stoprecording)
 * [`checkPermission()`](#checkpermission)
@@ -44,11 +44,15 @@ echo(options: { value: string; }) => any
 --------------------
 
 
-### InitSTT()
+### InitSTT(...)
 
 ```typescript
-InitSTT() => any
+InitSTT(options: { type: number; }) => any
 ```
+
+| Param         | Type                           |
+| ------------- | ------------------------------ |
+| **`options`** | <code>{ type: number; }</code> |
 
 **Returns:** <code>any</code>
 
