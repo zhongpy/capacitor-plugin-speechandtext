@@ -85,12 +85,12 @@
       },
       {
         "name": "generateSpeech",
-        "signature": "(options: { text: string; sid: number; speed: number; }) => any",
+        "signature": "(options: { text: string; wavName: string; sid: number; speed: number; }) => any",
         "parameters": [
           {
             "name": "options",
             "docs": "",
-            "type": "{ text: string; sid: number; speed: number; }"
+            "type": "{ text: string; wavName: string; sid: number; speed: number; }"
           }
         ],
         "returns": "any",

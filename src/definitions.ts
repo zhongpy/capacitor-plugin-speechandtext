@@ -8,7 +8,7 @@ export interface SpeechAndTextPlugin {
   checkPermission(): Promise<{ hasPermission: boolean }>;
 
   InitTTS(options: { itype: number }): Promise<{ value: string }>;
-  generateSpeech(options: { text: string; sid: number; speed: number }): Promise<{ value: string }>;
+  generateSpeech(options: { text: string; wavName: string; sid: number; speed: number }): Promise<{ value: string }>;
 
   addListener(
     eventName: 'onRecognizerResult',

@@ -37,7 +37,7 @@ public class TextToSpeech {
     private OfflineTts tts;
     private AudioTrack track;
     private ExecutorService ttsExecutor;
-    private final String outputFilename = "generated.wav";
+    private final String outputFilename = ".wav";
     private volatile boolean stopped = false;
 
     private String copyDataDir(String dataDir, Context context) {
@@ -380,14 +380,14 @@ public class TextToSpeech {
         track.play();
     }
 
-    public JSObject generateSpeech(String text, int sid, float speed, Context context) {
+    public JSObject generateSpeech(String text, String wavName, int sid, float speed, Context context) {
         //track.pause();
         //track.flush();
         //track.play();
 
         GeneratedAudio audio = tts.generateWithCallback(text, sid, speed, this::audioCallback);
 
-        String filename = context.getFilesDir().getAbsolutePath() + "/" + outputFilename;
+        String filename = context.getFilesDir().getAbsolutePath() + "/" + wavName + outputFilename;
         boolean success = audio.getSamples().length > 0 && audio.save(filename);
         if (success) {
             JSObject result = new JSObject();

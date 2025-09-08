@@ -28,6 +28,7 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
     }>;
     generateSpeech(options: {
         text: string;
+        wavName: string;
         sid: number;
         speed: number;
     }): Promise<{

@@ -5,6 +5,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -132,12 +133,18 @@ public class SpeechAndTextPlugin extends Plugin {
     @PluginMethod
     public void generateSpeech(PluginCall call) {
         String text = call.getString("text");
+        String wavName = call.getString("wavName");
         int sid = call.getInt("sid", 0);
         float speed = call.getFloat("speed", 1.0f);
 
         if (text == null || text.trim().isEmpty()) {
             call.reject("Text cannot be empty");
             return;
+        }
+
+        if (wavName == null || wavName.trim().isEmpty()) {
+            UUID uuid = UUID.randomUUID();
+            wavName = uuid.toString();
         }
 
         if (tts == null) {
@@ -148,9 +155,11 @@ public class SpeechAndTextPlugin extends Plugin {
         stopped = false;
 
         ttsExecutor = Executors.newSingleThreadExecutor();
+        String finalWavName = wavName;
         ttsExecutor.execute(() -> {
             try {
-                JSObject result = tts.generateSpeech(text, sid, speed, getContext());
+                JSObject result = tts.generateSpeech(text, finalWavName, sid, speed, getContext());
+                stopped = true;
                 if (result != null) {
                     notifyListeners("onGenerationComplete", result);
                     call.resolve(result);

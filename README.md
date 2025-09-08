@@ -110,12 +110,12 @@ InitTTS(options: { itype: number; }) => any
 ### generateSpeech(...)
 
 ```typescript
-generateSpeech(options: { text: string; sid: number; speed: number; }) => any
+generateSpeech(options: { text: string; wavName: string; sid: number; speed: number; }) => any
 ```
 
-| Param         | Type                                                       |
-| ------------- | ---------------------------------------------------------- |
-| **`options`** | <code>{ text: string; sid: number; speed: number; }</code> |
+| Param         | Type                                                                        |
+| ------------- | --------------------------------------------------------------------------- |
+| **`options`** | <code>{ text: string; wavName: string; sid: number; speed: number; }</code> |
 
 **Returns:** <code>any</code>
 

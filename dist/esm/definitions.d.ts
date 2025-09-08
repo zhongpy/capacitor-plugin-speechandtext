@@ -27,6 +27,7 @@ export interface SpeechAndTextPlugin {
     }>;
     generateSpeech(options: {
         text: string;
+        wavName: string;
         sid: number;
         speed: number;
     }): Promise<{
