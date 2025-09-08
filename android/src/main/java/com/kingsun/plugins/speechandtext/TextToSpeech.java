@@ -264,24 +264,31 @@ public class TextToSpeech {
         switch (itype) {
             case 0: {
                 vitsName = "en_US-kristin-medium";
+                break;
             }
             case 1: {
                 vitsName = "en_US-bryce-medium";
+                break;
             }
             case 2: {
                 vitsName = "en_GB-alan-medium";
+                break;
             }
             case 3: {
                 vitsName = "en_GB-cori-medium";
+                break;
             }
             case 4: {
                 vitsName = "zh_CN-huayan-medium";
+                break;
             }
             case 5: {
                 vitsName = "fr_FR-siwis-medium";
+                break;
             }
             case 6: {
                 vitsName = "fr_FR-tom-medium";
+                break;
             }
             default:
                 vitsName = "en_US-kristin-medium";
