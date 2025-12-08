@@ -54,10 +54,10 @@ public class SpeechAndTextPlugin extends Plugin {
             return;
         }
 
-        if (!stt.checkMicrophonePermission(getContext())) {
-            call.reject("Microphone permission required");
-            return;
-        }
+        //if (!stt.checkMicrophonePermission(getContext())) {
+        //    call.reject("Microphone permission required");
+        //    return;
+        //}
 
         if (!stt.initMicrophone(getContext(), getActivity())) {
             call.reject("Failed to initialize microphone");
