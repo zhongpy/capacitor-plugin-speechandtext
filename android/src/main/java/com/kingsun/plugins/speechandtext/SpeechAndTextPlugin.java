@@ -40,7 +40,7 @@ public class SpeechAndTextPlugin extends Plugin {
                 stt.initModel(itype, getContext());
             }
             else{
-                stt.onDestroy()
+                stt.onDestroy();
                 stt = new SpeechToText();
                 stt.initModel(itype, getContext());
             }
@@ -128,7 +128,7 @@ public class SpeechAndTextPlugin extends Plugin {
                 //tts.initAudioTrack();
             }
             else{
-                tts.onDestroy()
+                tts.onDestroy();
                 tts = new TextToSpeech();
                 tts.initTTS(itype, getContext());
             }
