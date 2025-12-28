@@ -39,6 +39,11 @@ public class SpeechAndTextPlugin extends Plugin {
                 stt = new SpeechToText();
                 stt.initModel(itype, getContext());
             }
+            else{
+                stt.onDestroy()
+                stt = new SpeechToText();
+                stt.initModel(itype, getContext());
+            }
             JSObject ret = new JSObject();
             ret.put("value", "Init STT Success!");
             call.resolve(ret);
@@ -121,6 +126,11 @@ public class SpeechAndTextPlugin extends Plugin {
                 tts = new TextToSpeech();
                 tts.initTTS(itype, getContext());
                 //tts.initAudioTrack();
+            }
+            else{
+                tts.onDestroy()
+                tts = new TextToSpeech();
+                tts.initTTS(itype, getContext());
             }
             JSObject ret = new JSObject();
             ret.put("value", "Init TTS Success!");
