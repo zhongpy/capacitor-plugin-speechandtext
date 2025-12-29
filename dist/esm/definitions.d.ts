@@ -10,6 +10,9 @@ export interface SpeechAndTextPlugin {
     }): Promise<{
         value: string;
     }>;
+    DestroySTT(): Promise<{
+        value: string;
+    }>;
     startRecording(): Promise<{
         text: string;
         isEndpoint: boolean;

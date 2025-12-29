@@ -15,6 +15,7 @@ npx cap sync
 
 * [`echo(...)`](#echo)
 * [`InitSTT(...)`](#initstt)
+* [`DestroySTT()`](#destroystt)
 * [`startRecording()`](#startrecording)
 * [`stopRecording()`](#stoprecording)
 * [`checkPermission()`](#checkpermission)
@@ -53,6 +54,17 @@ InitSTT(options: { itype: number; }) => any
 | Param         | Type                            |
 | ------------- | ------------------------------- |
 | **`options`** | <code>{ itype: number; }</code> |
+
+**Returns:** <code>any</code>
+
+--------------------
+
+
+### DestroySTT()
+
+```typescript
+DestroySTT() => any
+```
 
 **Returns:** <code>any</code>
 

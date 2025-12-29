@@ -38,6 +38,16 @@
         "slug": "initstt"
       },
       {
+        "name": "DestroySTT",
+        "signature": "() => any",
+        "parameters": [],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "destroystt"
+      },
+      {
         "name": "startRecording",
         "signature": "() => any",
         "parameters": [],

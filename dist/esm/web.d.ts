@@ -11,6 +11,9 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
     }): Promise<{
         value: string;
     }>;
+    DestroySTT(): Promise<{
+        value: string;
+    }>;
     startRecording(): Promise<{
         text: string;
         isEndpoint: boolean;

@@ -16,6 +16,11 @@ class SpeechAndTextWeb extends core.WebPlugin {
         console.log('InitSTT', options);
         return result;
     }
+    async DestroySTT() {
+        const result = { value: '' };
+        console.log('DestroySTT');
+        return result;
+    }
     async startRecording() {
         const result = { text: '', isEndpoint: true };
         return result;

@@ -39,16 +39,26 @@ public class SpeechAndTextPlugin extends Plugin {
                 stt = new SpeechToText();
                 stt.initModel(itype, getContext());
             }
-            else{
-                stt.onDestroy();
-                stt = new SpeechToText();
-                stt.initModel(itype, getContext());
-            }
             JSObject ret = new JSObject();
             ret.put("value", "Init STT Success!");
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to initialize: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void DestroySTT(PluginCall call) {
+        try {
+            if (stt) {
+                stt.onDestroy();
+                stt = null;
+            }
+            JSObject ret = new JSObject();
+            ret.put("value", "Destroy STT Success!");
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to destroy stt: " + e.getMessage());
         }
     }
 
@@ -59,10 +69,10 @@ public class SpeechAndTextPlugin extends Plugin {
             return;
         }
 
-        //if (!stt.checkMicrophonePermission(getContext())) {
-        //    call.reject("Microphone permission required");
-        //    return;
-        //}
+        // if (!stt.checkMicrophonePermission(getContext())) {
+        // call.reject("Microphone permission required");
+        // return;
+        // }
 
         if (!stt.initMicrophone(getContext(), getActivity())) {
             call.reject("Failed to initialize microphone");
@@ -125,9 +135,8 @@ public class SpeechAndTextPlugin extends Plugin {
             if (tts == null) {
                 tts = new TextToSpeech();
                 tts.initTTS(itype, getContext());
-                //tts.initAudioTrack();
-            }
-            else{
+                // tts.initAudioTrack();
+            } else {
                 tts.onDestroy();
                 tts = new TextToSpeech();
                 tts.initTTS(itype, getContext());

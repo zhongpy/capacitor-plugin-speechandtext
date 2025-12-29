@@ -13,6 +13,12 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     return result;
   }
 
+  async DestroySTT(): Promise<{ value: string }> {
+    const result = { value: '' };
+    console.log('DestroySTT');
+    return result;
+  }
+
   async startRecording(): Promise<{ text: string; isEndpoint: boolean }> {
     const result = { text: '', isEndpoint: true };
     return result;
