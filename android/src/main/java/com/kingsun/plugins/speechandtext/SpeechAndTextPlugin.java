@@ -50,7 +50,7 @@ public class SpeechAndTextPlugin extends Plugin {
     @PluginMethod
     public void DestroySTT(PluginCall call) {
         try {
-            if (stt) {
+            if (stt != null) {
                 stt.onDestroy();
                 stt = null;
             }
