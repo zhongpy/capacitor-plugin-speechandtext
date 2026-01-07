@@ -7,7 +7,7 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     console.log('ECHO', options);
     return options;
   }
-  async InitSTT(options: { itype: number }): Promise<{ value: string }> {
+  async InitSTT(options: { itype: number; rootDir: string }): Promise<{ value: string }> {
     const result = { value: '' };
     console.log('InitSTT', options);
     return result;
@@ -32,7 +32,7 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     const result = { hasPermission: false };
     return result;
   }
-  async InitTTS(options: { itype: number }): Promise<{ value: string }> {
+  async InitTTS(options: { itype: number; rootDir: string }): Promise<{ value: string }> {
     const result = { value: '' };
     console.log('InitTTS', options);
     return result;

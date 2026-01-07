@@ -2,13 +2,13 @@ import type { PluginListenerHandle } from '@capacitor/core';
 
 export interface SpeechAndTextPlugin {
   echo(options: { value: string }): Promise<{ value: string }>;
-  InitSTT(options: { itype: number }): Promise<{ value: string }>;
+  InitSTT(options: { itype: number; rootDir: string }): Promise<{ value: string }>;
   DestroySTT(): Promise<{ value: string }>;
   startRecording(): Promise<{ text: string; isEndpoint: boolean }>;
   stopRecording(): Promise<{ value: string }>;
   checkPermission(): Promise<{ hasPermission: boolean }>;
 
-  InitTTS(options: { itype: number }): Promise<{ value: string }>;
+  InitTTS(options: { itype: number; rootDir: string }): Promise<{ value: string }>;
   generateSpeech(options: { text: string; wavName: string; sid: number; speed: number }): Promise<{ value: string }>;
 
   addListener(

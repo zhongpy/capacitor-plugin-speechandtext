@@ -48,12 +48,12 @@ echo(options: { value: string; }) => any
 ### InitSTT(...)
 
 ```typescript
-InitSTT(options: { itype: number; }) => any
+InitSTT(options: { itype: number; rootDir: string; }) => any
 ```
 
-| Param         | Type                            |
-| ------------- | ------------------------------- |
-| **`options`** | <code>{ itype: number; }</code> |
+| Param         | Type                                             |
+| ------------- | ------------------------------------------------ |
+| **`options`** | <code>{ itype: number; rootDir: string; }</code> |
 
 **Returns:** <code>any</code>
 
@@ -107,12 +107,12 @@ checkPermission() => any
 ### InitTTS(...)
 
 ```typescript
-InitTTS(options: { itype: number; }) => any
+InitTTS(options: { itype: number; rootDir: string; }) => any
 ```
 
-| Param         | Type                            |
-| ------------- | ------------------------------- |
-| **`options`** | <code>{ itype: number; }</code> |
+| Param         | Type                                             |
+| ------------- | ------------------------------------------------ |
+| **`options`** | <code>{ itype: number; rootDir: string; }</code> |
 
 **Returns:** <code>any</code>
 

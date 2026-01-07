@@ -23,12 +23,12 @@
       },
       {
         "name": "InitSTT",
-        "signature": "(options: { itype: number; }) => any",
+        "signature": "(options: { itype: number; rootDir: string; }) => any",
         "parameters": [
           {
             "name": "options",
             "docs": "",
-            "type": "{ itype: number; }"
+            "type": "{ itype: number; rootDir: string; }"
           }
         ],
         "returns": "any",
@@ -79,12 +79,12 @@
       },
       {
         "name": "InitTTS",
-        "signature": "(options: { itype: number; }) => any",
+        "signature": "(options: { itype: number; rootDir: string; }) => any",
         "parameters": [
           {
             "name": "options",
             "docs": "",
-            "type": "{ itype: number; }"
+            "type": "{ itype: number; rootDir: string; }"
           }
         ],
         "returns": "any",

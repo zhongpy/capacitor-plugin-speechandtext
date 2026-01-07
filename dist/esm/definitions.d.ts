@@ -7,6 +7,7 @@ export interface SpeechAndTextPlugin {
     }>;
     InitSTT(options: {
         itype: number;
+        rootDir: string;
     }): Promise<{
         value: string;
     }>;
@@ -25,6 +26,7 @@ export interface SpeechAndTextPlugin {
     }>;
     InitTTS(options: {
         itype: number;
+        rootDir: string;
     }): Promise<{
         value: string;
     }>;

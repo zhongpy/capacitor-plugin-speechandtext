@@ -98,12 +98,14 @@ public class TextToSpeech {
         }
 
         File parent = out.getParentFile();
-        if (parent != null && !parent.exists()) parent.mkdirs();
+        if (parent != null && !parent.exists())
+            parent.mkdirs();
 
         try (OutputStream os = new FileOutputStream(out)) {
             byte[] buf = new byte[8192];
             int n;
-            while ((n = is.read(buf)) >= 0) os.write(buf, 0, n);
+            while ((n = is.read(buf)) >= 0)
+                os.write(buf, 0, n);
             os.flush();
         }
         Log.i(TAG, "Copied file: " + out.getAbsolutePath() + " (" + out.length() + " bytes)");
@@ -113,7 +115,8 @@ public class TextToSpeech {
         if (f.isDirectory()) {
             File[] children = f.listFiles();
             if (children != null) {
-                for (File c : children) deleteRecursively(c);
+                for (File c : children)
+                    deleteRecursively(c);
             }
         }
         if (!f.delete()) {
@@ -126,19 +129,18 @@ public class TextToSpeech {
     }
 
     private OfflineTtsConfig getOfflineTtsConfig(
-        String modelDir,
-        String modelName, // VITS / Kokoro / Kitten 用
-        String acousticModelName, // Matcha 用
-        String vocoder, // Matcha 用
-        String voices, // Kokoro / Kitten 用
-        String lexicon,
-        String dataDir,
-        String dictDir,
-        String ruleFsts,
-        String ruleFars,
-        Integer numThreads,
-        boolean isKitten
-    ) {
+            String modelDir,
+            String modelName, // VITS / Kokoro / Kitten 用
+            String acousticModelName, // Matcha 用
+            String vocoder, // Matcha 用
+            String voices, // Kokoro / Kitten 用
+            String lexicon,
+            String dataDir,
+            String dictDir,
+            String ruleFsts,
+            String ruleFars,
+            Integer numThreads,
+            boolean isKitten) {
         modelDir = nz(modelDir);
         modelName = nz(modelName);
         acousticModelName = nz(acousticModelName);
@@ -171,12 +173,12 @@ public class TextToSpeech {
         if (!modelName.isEmpty() && voices.isEmpty()) {
             // lexicon 可为空串（不要 null）
             vits = OfflineTtsVitsModelConfig.builder()
-                .setModel(modelDir + "/" + modelName)
-                .setLexicon(lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon)))
-                .setTokens(modelDir + "/tokens.txt")
-                .setDataDir(dataDir) // 允许空串
-                .setDictDir(dictDir) // 允许空串
-                .build();
+                    .setModel(modelDir + "/" + modelName)
+                    .setLexicon(lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon)))
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setDataDir(dataDir) // 允许空串
+                    .setDictDir(dictDir) // 允许空串
+                    .build();
         } else {
             vits = OfflineTtsVitsModelConfig.builder().build();
         }
@@ -185,13 +187,13 @@ public class TextToSpeech {
         OfflineTtsMatchaModelConfig matcha;
         if (!acousticModelName.isEmpty()) {
             matcha = OfflineTtsMatchaModelConfig.builder()
-                .setAcousticModel(modelDir + "/" + acousticModelName)
-                .setVocoder(vocoder) // 非空校验已在上面
-                .setLexicon(lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon)))
-                .setTokens(modelDir + "/tokens.txt")
-                .setDictDir(dictDir)
-                .setDataDir(dataDir)
-                .build();
+                    .setAcousticModel(modelDir + "/" + acousticModelName)
+                    .setVocoder(vocoder) // 非空校验已在上面
+                    .setLexicon(lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon)))
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setDictDir(dictDir)
+                    .setDataDir(dataDir)
+                    .build();
         } else {
             matcha = OfflineTtsMatchaModelConfig.builder().build();
         }
@@ -199,15 +201,16 @@ public class TextToSpeech {
         // --- Kokoro ---
         OfflineTtsKokoroModelConfig kokoro;
         if (!voices.isEmpty() && !isKitten) {
-            String lexiconPath = lexicon.isEmpty() ? "" : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon));
+            String lexiconPath = lexicon.isEmpty() ? ""
+                    : (lexicon.contains(",") ? lexicon : (modelDir + "/" + lexicon));
             kokoro = OfflineTtsKokoroModelConfig.builder()
-                .setModel(modelDir + "/" + modelName)
-                .setVoices(modelDir + "/" + voices)
-                .setTokens(modelDir + "/tokens.txt")
-                .setDataDir(dataDir)
-                .setLexicon(lexiconPath)
-                .setDictDir(dictDir)
-                .build();
+                    .setModel(modelDir + "/" + modelName)
+                    .setVoices(modelDir + "/" + voices)
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setDataDir(dataDir)
+                    .setLexicon(lexiconPath)
+                    .setDictDir(dictDir)
+                    .build();
         } else {
             kokoro = OfflineTtsKokoroModelConfig.builder().build();
         }
@@ -216,102 +219,79 @@ public class TextToSpeech {
         OfflineTtsKittenModelConfig kitten;
         if (isKitten) {
             kitten = OfflineTtsKittenModelConfig.builder()
-                .setModel(modelDir + "/" + modelName)
-                .setVoices(modelDir + "/" + voices)
-                .setTokens(modelDir + "/tokens.txt")
-                .setDataDir(dataDir)
-                .build();
+                    .setModel(modelDir + "/" + modelName)
+                    .setVoices(modelDir + "/" + voices)
+                    .setTokens(modelDir + "/tokens.txt")
+                    .setDataDir(dataDir)
+                    .build();
         } else {
             kitten = OfflineTtsKittenModelConfig.builder().build();
         }
 
         OfflineTtsModelConfig modelConfig = OfflineTtsModelConfig.builder()
-            .setVits(vits)
-            .setMatcha(matcha)
-            .setKokoro(kokoro)
-            .setKitten(kitten)
-            .setNumThreads(numberOfThreads)
-            .setDebug(true)
-            .setProvider("cpu")
-            .build();
+                .setVits(vits)
+                .setMatcha(matcha)
+                .setKokoro(kokoro)
+                .setKitten(kitten)
+                .setNumThreads(numberOfThreads)
+                .setDebug(true)
+                .setProvider("cpu")
+                .build();
 
         return OfflineTtsConfig.builder()
-            .setModel(modelConfig)
-            .setRuleFsts(ruleFsts) // 空串 OK，不能传 null
-            .setRuleFars(ruleFars) // 空串 OK，不能传 null
-            .build();
+                .setModel(modelConfig)
+                .setRuleFsts(ruleFsts) // 空串 OK，不能传 null
+                .setRuleFars(ruleFars) // 空串 OK，不能传 null
+                .build();
     }
 
     private int audioCallback(float[] samples) {
         if (!stopped) {
-            //track.write(samples, 0, samples.length, AudioTrack.WRITE_BLOCKING);
+            // track.write(samples, 0, samples.length, AudioTrack.WRITE_BLOCKING);
 
             // Send progress update
-            //JSObject progress = new JSObject();
-            //progress.put("samplesGenerated", samples.length);
-            //notifyListeners("onGenerationProgress", progress);
+            // JSObject progress = new JSObject();
+            // progress.put("samplesGenerated", samples.length);
+            // notifyListeners("onGenerationProgress", progress);
 
             return 1;
         } else {
-            //track.stop();
+            // track.stop();
             return 0;
         }
     }
 
-    public void initTTS(Integer itype, Context context) {
-        // 以 piper 的 VITS 英文模型为例
-        String vitsName = "en_US-kristin-medium";
-        switch (itype) {
-            case 0: {
-                vitsName = "en_US-kristin-medium";
-                break;
-            }
-            case 1: {
-                vitsName = "en_US-bryce-medium";
-                break;
-            }
-            case 2: {
-                vitsName = "en_GB-alan-medium";
-                break;
-            }
-            case 3: {
-                vitsName = "en_GB-cori-medium";
-                break;
-            }
-            case 4: {
-                vitsName = "zh_CN-huayan-medium";
-                break;
-            }
-            case 5: {
-                vitsName = "fr_FR-siwis-medium";
-                break;
-            }
-            case 6: {
-                vitsName = "fr_FR-tom-medium";
-                break;
-            }
-            default:
-                vitsName = "en_US-kristin-medium";
-        }
+    public void initTTS(Integer itype, Context context, String ttsRootDir) {
+        String vitsName = pickVitsName(itype);
+
         Log.i(TAG, "initTTS type:" + itype + " vitsName:" + vitsName);
-        String modelDir = "vits-piper-" + vitsName;
+
+        String modelDirName = "vits-piper-" + vitsName;
         String modelName = vitsName + ".onnx";
-        String dataDir = "vits-piper-" + vitsName + "/espeak-ng-data"; // 目录
-        String ruleFsts = null; // 会在 getOfflineTtsConfig 内转成 ""
+
+        String root = normDir(ttsRootDir);
+        boolean useExternal = !root.isEmpty();
+
+        String modelDir;
+        String dataDir;
+
+        if (useExternal) {
+            modelDir = join(root, modelDirName);
+            dataDir = modelDir + "/espeak-ng-data";
+        } else {
+            // 兼容旧模式：从 assets copy
+            modelDir = copyDataDir(modelDirName, context);
+            dataDir = copyDataDir(modelDirName + "/espeak-ng-data", context);
+        }
+
+        String ruleFsts = null;
         String ruleFars = null;
-        String lexicon = ""; // 英文 piper 通常不需要 lexicon，显式设为空串
-        String dictDir = ""; // 无则传空串
+        String lexicon = "";
+        String dictDir = "";
         String acousticModelName = "";
         String vocoder = "";
         String voices = "";
         boolean isKitten = false;
-
-        if (context == null) throw new IllegalStateException("Context is null");
-
-        // 拷贝 modelDir
-        modelDir = copyDataDir(modelDir, context); // -> /data/user/0/<pkg>/files/vits-piper-en_US-miro-high
-        // 拷贝 dataDir
-        dataDir = copyDataDir(dataDir, context);
 
         // 自检：必须是文件
         String modelPath = modelDir + "/" + modelName;
@@ -321,26 +301,49 @@ public class TextToSpeech {
         assertIsDir("TTS data", dataDir);
 
         OfflineTtsConfig config = getOfflineTtsConfig(
-            modelDir,
-            modelName,
-            acousticModelName,
-            vocoder,
-            voices,
-            lexicon,
-            dataDir,
-            dictDir,
-            ruleFsts,
-            ruleFars,
-            null,
-            isKitten
-        );
+                modelDir,
+                modelName,
+                acousticModelName,
+                vocoder,
+                voices,
+                lexicon,
+                dataDir,
+                dictDir,
+                ruleFsts,
+                ruleFars,
+                null,
+                isKitten);
 
         tts = new OfflineTts(config);
     }
 
+    private String pickVitsName(Integer itype) {
+        if (itype == null)
+            itype = 0;
+        switch (itype) {
+            case 0:
+                return "en_US-kristin-medium";
+            case 1:
+                return "en_US-bryce-medium";
+            case 2:
+                return "en_GB-alan-medium";
+            case 3:
+                return "en_GB-cori-medium";
+            case 4:
+                return "zh_CN-huayan-medium";
+            case 5:
+                return "fr_FR-siwis-medium";
+            case 6:
+                return "fr_FR-tom-medium";
+            default:
+                return "en_US-kristin-medium";
+        }
+    }
+
     private static void assertIsFile(String label, String path) {
         File f = new File(path);
-        Log.i(TAG, label + " exists=" + f.exists() + " isFile=" + f.isFile() + " size=" + (f.exists() ? f.length() : -1) + " path=" + path);
+        Log.i(TAG, label + " exists=" + f.exists() + " isFile=" + f.isFile() + " size=" + (f.exists() ? f.length() : -1)
+                + " path=" + path);
         if (!f.exists() || !f.isFile() || f.length() < 128) {
             // 小于 128 字节大概率是 LFS 指针或损坏
             throw new IllegalStateException(label + " invalid: " + path);
@@ -361,29 +364,30 @@ public class TextToSpeech {
         }
 
         int sampleRate = tts.getSampleRate();
-        int bufLength = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT);
+        int bufLength = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_FLOAT);
 
         Log.i(TAG, "sampleRate: " + sampleRate + ", buffLength: " + bufLength);
 
         AudioAttributes attr = new AudioAttributes.Builder()
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .build();
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .build();
 
         AudioFormat format = new AudioFormat.Builder()
-            .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-            .setSampleRate(sampleRate)
-            .build();
+                .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .setSampleRate(sampleRate)
+                .build();
 
         track = new AudioTrack(attr, format, bufLength, AudioTrack.MODE_STREAM, AudioManager.AUDIO_SESSION_ID_GENERATE);
         track.play();
     }
 
     public JSObject generateSpeech(String text, String wavName, int sid, float speed, Context context) {
-        //track.pause();
-        //track.flush();
-        //track.play();
+        // track.pause();
+        // track.flush();
+        // track.play();
 
         GeneratedAudio audio = tts.generateWithCallback(text, sid, speed, this::audioCallback);
 

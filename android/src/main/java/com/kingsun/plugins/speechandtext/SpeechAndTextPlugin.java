@@ -5,6 +5,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,7 +21,6 @@ public class SpeechAndTextPlugin extends Plugin {
 
     private ExecutorService ttsExecutor;
     private ExecutorService recordingExecutor;
-    private volatile boolean stopped = false;
 
     @PluginMethod
     public void echo(PluginCall call) {
@@ -34,16 +34,17 @@ public class SpeechAndTextPlugin extends Plugin {
     @PluginMethod
     public void InitSTT(PluginCall call) {
         int itype = call.getInt("itype", 21);
+        String rootDir = call.getString("rootDir", ""); // NEW: /files/models/stt
+
         try {
-            if (stt == null) {
+            if (stt == null)
                 stt = new SpeechToText();
-                stt.initModel(itype, getContext());
-            }
+            stt.initModel(itype, getContext(), rootDir);
             JSObject ret = new JSObject();
             ret.put("value", "Init STT Success!");
             call.resolve(ret);
         } catch (Exception e) {
-            call.reject("Failed to initialize: " + e.getMessage());
+            call.reject("Failed to initialize STT: " + e.getMessage());
         }
     }
 
@@ -54,9 +55,7 @@ public class SpeechAndTextPlugin extends Plugin {
                 stt.onDestroy();
                 stt = null;
             }
-            JSObject ret = new JSObject();
-            ret.put("value", "Destroy STT Success!");
-            call.resolve(ret);
+            call.resolve(new JSObject().put("value", "Destroy STT Success!"));
         } catch (Exception e) {
             call.reject("Failed to destroy stt: " + e.getMessage());
         }
@@ -64,16 +63,14 @@ public class SpeechAndTextPlugin extends Plugin {
 
     @PluginMethod
     public void startRecording(PluginCall call) {
+        if (stt == null) {
+            call.reject("STT not initialized");
+            return;
+        }
         if (stt.isRecording()) {
             call.reject("Already recording");
             return;
         }
-
-        // if (!stt.checkMicrophonePermission(getContext())) {
-        // call.reject("Microphone permission required");
-        // return;
-        // }
-
         if (!stt.initMicrophone(getContext(), getActivity())) {
             call.reject("Failed to initialize microphone");
             return;
@@ -81,21 +78,26 @@ public class SpeechAndTextPlugin extends Plugin {
 
         try {
             stt.startRecording();
+
             SpeechToText.RecognizerCallback callback = (text, isEndpoint) -> {
                 JSObject result = new JSObject();
                 result.put("text", text);
                 result.put("isEndpoint", isEndpoint);
                 notifyListeners("onRecognizerResult", result);
             };
+
             recordingExecutor = Executors.newSingleThreadExecutor();
             recordingExecutor.execute(() -> {
                 try {
                     stt.processSamples(callback);
-                    call.resolve();
                 } catch (Exception e) {
-                    call.reject("Recognizer failed: " + e.getMessage());
+                    // 录音线程内不要 call.reject（call 可能已 resolve）
+                    JSObject err = new JSObject();
+                    err.put("error", "Recognizer failed: " + e.getMessage());
+                    notifyListeners("onRecognizerError", err);
                 }
             });
+
             call.resolve();
         } catch (Exception e) {
             call.reject("Failed to start recording: " + e.getMessage());
@@ -104,13 +106,17 @@ public class SpeechAndTextPlugin extends Plugin {
 
     @PluginMethod
     public void stopRecording(PluginCall call) {
+        if (stt == null) {
+            call.reject("STT not initialized");
+            return;
+        }
         if (!stt.isRecording()) {
             call.reject("Not recording");
             return;
         }
         try {
             if (recordingExecutor != null) {
-                recordingExecutor.shutdown();
+                recordingExecutor.shutdownNow();
                 recordingExecutor = null;
             }
             stt.stopRecording();
@@ -122,30 +128,30 @@ public class SpeechAndTextPlugin extends Plugin {
 
     @PluginMethod
     public void checkPermission(PluginCall call) {
+        if (stt == null) {
+            call.resolve(new JSObject().put("hasPermission", false));
+            return;
+        }
         boolean hasPermission = stt.checkMicrophonePermission(getContext());
-        JSObject result = new JSObject();
-        result.put("hasPermission", hasPermission);
-        call.resolve(result);
+        call.resolve(new JSObject().put("hasPermission", hasPermission));
     }
 
     @PluginMethod
     public void InitTTS(PluginCall call) {
-        Integer itype = call.getInt("itype", 0);
+        int itype = call.getInt("itype", 0);
+        String rootDir = call.getString("rootDir", ""); // NEW: /files/models/tts
+
         try {
-            if (tts == null) {
-                tts = new TextToSpeech();
-                tts.initTTS(itype, getContext());
-                // tts.initAudioTrack();
-            } else {
+            if (tts != null) {
                 tts.onDestroy();
-                tts = new TextToSpeech();
-                tts.initTTS(itype, getContext());
+                tts = null;
             }
-            JSObject ret = new JSObject();
-            ret.put("value", "Init TTS Success!");
-            call.resolve(ret);
+            tts = new TextToSpeech();
+            tts.initTTS(itype, getContext(), rootDir);
+
+            call.resolve(new JSObject().put("value", "Init TTS Success!"));
         } catch (Exception e) {
-            call.reject("Failed to initialize: " + e.getMessage());
+            call.reject("Failed to initialize TTS: " + e.getMessage());
         }
     }
 
@@ -160,32 +166,37 @@ public class SpeechAndTextPlugin extends Plugin {
             call.reject("Text cannot be empty");
             return;
         }
-
         if (wavName == null || wavName.trim().isEmpty()) {
-            UUID uuid = UUID.randomUUID();
-            wavName = uuid.toString();
+            wavName = UUID.randomUUID().toString();
         }
-
         if (tts == null) {
             call.reject("TTS not initialized");
             return;
         }
 
-        stopped = false;
-
+        if (ttsExecutor != null)
+            ttsExecutor.shutdownNow();
         ttsExecutor = Executors.newSingleThreadExecutor();
-        String finalWavName = wavName;
+
+        final String finalWavName = wavName;
         ttsExecutor.execute(() -> {
             try {
                 JSObject result = tts.generateSpeech(text, finalWavName, sid, speed, getContext());
-                stopped = true;
                 if (result != null) {
                     notifyListeners("onGenerationComplete", result);
-                    call.resolve(result);
+                } else {
+                    JSObject err = new JSObject();
+                    err.put("error", "Generation failed: empty result");
+                    notifyListeners("onGenerationError", err);
                 }
             } catch (Exception e) {
-                call.reject("Generation failed: " + e.getMessage());
+                JSObject err = new JSObject();
+                err.put("error", "Generation failed: " + e.getMessage());
+                notifyListeners("onGenerationError", err);
             }
         });
+
+        // 立即 resolve，结果通过事件回调
+        call.resolve(new JSObject().put("value", "Generation started"));
     }
 }

@@ -8,6 +8,7 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
     }>;
     InitSTT(options: {
         itype: number;
+        rootDir: string;
     }): Promise<{
         value: string;
     }>;
@@ -26,6 +27,7 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
     }>;
     InitTTS(options: {
         itype: number;
+        rootDir: string;
     }): Promise<{
         value: string;
     }>;
