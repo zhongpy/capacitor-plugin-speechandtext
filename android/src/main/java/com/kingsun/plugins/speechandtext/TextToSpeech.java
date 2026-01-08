@@ -124,6 +124,26 @@ public class TextToSpeech {
         }
     }
 
+    private static String normDir(String s) {
+        if (s == null)
+            return "";
+        // 去掉末尾 /
+        while (s.endsWith("/") || s.endsWith("\\")) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    private static String join(String a, String b) {
+        a = normDir(a);
+        if (b == null)
+            b = "";
+        b = b.replaceAll("^[\\\\/]+", "");
+        if (a.isEmpty())
+            return b;
+        return a + "/" + b;
+    }
+
     private static String nz(String s) {
         return s == null ? "" : s;
     }
