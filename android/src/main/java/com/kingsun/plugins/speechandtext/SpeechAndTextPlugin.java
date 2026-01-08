@@ -21,6 +21,7 @@ public class SpeechAndTextPlugin extends Plugin {
 
     private ExecutorService ttsExecutor;
     private ExecutorService recordingExecutor;
+    private volatile boolean stopped = false;
 
     @PluginMethod
     public void echo(PluginCall call) {
@@ -166,37 +167,32 @@ public class SpeechAndTextPlugin extends Plugin {
             call.reject("Text cannot be empty");
             return;
         }
+
         if (wavName == null || wavName.trim().isEmpty()) {
-            wavName = UUID.randomUUID().toString();
+            UUID uuid = UUID.randomUUID();
+            wavName = uuid.toString();
         }
+
         if (tts == null) {
             call.reject("TTS not initialized");
             return;
         }
 
-        if (ttsExecutor != null)
-            ttsExecutor.shutdownNow();
-        ttsExecutor = Executors.newSingleThreadExecutor();
+        stopped = false;
 
-        final String finalWavName = wavName;
+        ttsExecutor = Executors.newSingleThreadExecutor();
+        String finalWavName = wavName;
         ttsExecutor.execute(() -> {
             try {
                 JSObject result = tts.generateSpeech(text, finalWavName, sid, speed, getContext());
+                stopped = true;
                 if (result != null) {
                     notifyListeners("onGenerationComplete", result);
-                } else {
-                    JSObject err = new JSObject();
-                    err.put("error", "Generation failed: empty result");
-                    notifyListeners("onGenerationError", err);
+                    call.resolve(result);
                 }
             } catch (Exception e) {
-                JSObject err = new JSObject();
-                err.put("error", "Generation failed: " + e.getMessage());
-                notifyListeners("onGenerationError", err);
+                call.reject("Generation failed: " + e.getMessage());
             }
         });
-
-        // 立即 resolve，结果通过事件回调
-        call.resolve(new JSObject().put("value", "Generation started"));
     }
 }
