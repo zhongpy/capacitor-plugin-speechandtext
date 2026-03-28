@@ -13,6 +13,7 @@ export interface GenerateSpeechOptions {
     wavName: string;
     sid: number;
     speed: number;
+    addExplicitMarker?: boolean;
     label?: string;
     contentProducer?: string;
     produceId?: string;
@@ -24,6 +25,7 @@ export interface GenerateSpeechResult {
     filePath: string;
     sampleRate: number;
     numSamples: number;
+    explicitMarkerAdded: boolean;
     aigcMetadata: AigcMetadata;
     aigcMetadataJson: string;
 }

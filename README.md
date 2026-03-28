@@ -171,29 +171,31 @@ addListener(eventName: 'onGenerationComplete', listenerFunc: (data: GenerateSpee
 
 #### GenerateSpeechOptions
 
-| Prop                    | Type                |
-| ----------------------- | ------------------- |
-| **`text`**              | <code>string</code> |
-| **`wavName`**           | <code>string</code> |
-| **`sid`**               | <code>number</code> |
-| **`speed`**             | <code>number</code> |
-| **`label`**             | <code>string</code> |
-| **`contentProducer`**   | <code>string</code> |
-| **`produceId`**         | <code>string</code> |
-| **`contentPropagator`** | <code>string</code> |
-| **`propagateId`**       | <code>string</code> |
-| **`reservedCode2`**     | <code>string</code> |
+| Prop                    | Type                 |
+| ----------------------- | -------------------- |
+| **`text`**              | <code>string</code>  |
+| **`wavName`**           | <code>string</code>  |
+| **`sid`**               | <code>number</code>  |
+| **`speed`**             | <code>number</code>  |
+| **`addExplicitMarker`** | <code>boolean</code> |
+| **`label`**             | <code>string</code>  |
+| **`contentProducer`**   | <code>string</code>  |
+| **`produceId`**         | <code>string</code>  |
+| **`contentPropagator`** | <code>string</code>  |
+| **`propagateId`**       | <code>string</code>  |
+| **`reservedCode2`**     | <code>string</code>  |
 
 
 #### GenerateSpeechResult
 
-| Prop                   | Type                                                  |
-| ---------------------- | ----------------------------------------------------- |
-| **`filePath`**         | <code>string</code>                                   |
-| **`sampleRate`**       | <code>number</code>                                   |
-| **`numSamples`**       | <code>number</code>                                   |
-| **`aigcMetadata`**     | <code><a href="#aigcmetadata">AigcMetadata</a></code> |
-| **`aigcMetadataJson`** | <code>string</code>                                   |
+| Prop                      | Type                                                  |
+| ------------------------- | ----------------------------------------------------- |
+| **`filePath`**            | <code>string</code>                                   |
+| **`sampleRate`**          | <code>number</code>                                   |
+| **`numSamples`**          | <code>number</code>                                   |
+| **`explicitMarkerAdded`** | <code>boolean</code>                                  |
+| **`aigcMetadata`**        | <code><a href="#aigcmetadata">AigcMetadata</a></code> |
+| **`aigcMetadataJson`**    | <code>string</code>                                   |
 
 
 #### AigcMetadata

@@ -199,6 +199,13 @@
           "type": "number"
         },
         {
+          "name": "addExplicitMarker",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "boolean | undefined"
+        },
+        {
           "name": "label",
           "tags": [],
           "docs": "",
@@ -269,6 +276,13 @@
           "docs": "",
           "complexTypes": [],
           "type": "number"
+        },
+        {
+          "name": "explicitMarkerAdded",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "boolean"
         },
         {
           "name": "aigcMetadata",

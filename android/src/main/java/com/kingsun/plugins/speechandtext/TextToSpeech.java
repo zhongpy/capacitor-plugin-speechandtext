@@ -41,6 +41,9 @@ public class TextToSpeech {
 
     private static final String TAG = "TextToSpeech";
     private static final String AIGC_CHUNK_ID = "AIGC";
+    private static final double EXPLICIT_MARKER_UNIT_SECONDS = 0.10d;
+    private static final double EXPLICIT_MARKER_TONE_FREQUENCY_HZ = 1760.0d;
+    private static final double EXPLICIT_MARKER_FADE_SECONDS = 0.008d;
     private OfflineTts tts;
     private AudioTrack track;
     private ExecutorService ttsExecutor;
@@ -63,13 +66,40 @@ public class TextToSpeech {
                 String contentPropagator,
                 String propagateId,
                 String reservedCode2) {
-            this.label = label;
-            this.contentProducer = contentProducer;
-            this.produceId = produceId;
-            this.contentPropagator = contentPropagator;
-            this.propagateId = propagateId;
-            this.reservedCode2 = reservedCode2;
+            this.label = label == null ? "" : label;
+            this.contentProducer = contentProducer == null ? "" : contentProducer;
+            this.produceId = produceId == null ? "" : produceId;
+            this.contentPropagator = contentPropagator == null ? "" : contentPropagator;
+            this.propagateId = propagateId == null ? "" : propagateId;
+            this.reservedCode2 = reservedCode2 == null ? "" : reservedCode2;
             this.reservedCode1 = "";
+        }
+    }
+
+    private static class WavFormatInfo {
+        final int audioFormat;
+        final int channelCount;
+        final int sampleRate;
+        final int blockAlign;
+        final int bitsPerSample;
+        final int dataOffset;
+        final int dataSize;
+
+        WavFormatInfo(
+                int audioFormat,
+                int channelCount,
+                int sampleRate,
+                int blockAlign,
+                int bitsPerSample,
+                int dataOffset,
+                int dataSize) {
+            this.audioFormat = audioFormat;
+            this.channelCount = channelCount;
+            this.sampleRate = sampleRate;
+            this.blockAlign = blockAlign;
+            this.bitsPerSample = bitsPerSample;
+            this.dataOffset = dataOffset;
+            this.dataSize = dataSize;
         }
     }
 
@@ -443,7 +473,8 @@ public class TextToSpeech {
             int sid,
             float speed,
             Context context,
-            AigcMetadata aigcMetadata) throws IOException, NoSuchAlgorithmException {
+            AigcMetadata aigcMetadata,
+            boolean addExplicitMarker) throws IOException, NoSuchAlgorithmException {
         // track.pause();
         // track.flush();
         // track.play();
@@ -454,6 +485,9 @@ public class TextToSpeech {
         boolean success = audio.getSamples().length > 0 && audio.save(filename);
         if (success) {
             File wavFile = new File(filename);
+            if (addExplicitMarker) {
+                prependExplicitMarker(wavFile);
+            }
             String reservedCode1 = computeDataChunkSha256Hex(wavFile);
             aigcMetadata.reservedCode1 = reservedCode1;
             String aigcMetadataJson = appendAigcChunk(wavFile, aigcMetadata);
@@ -479,6 +513,7 @@ public class TextToSpeech {
             result.put("numSamples", audio.getSamples().length);
             result.put("aigcMetadata", aigcMetadataObject);
             result.put("aigcMetadataJson", aigcMetadataJson);
+            result.put("explicitMarkerAdded", addExplicitMarker);
 
             return result;
         } else {
@@ -540,17 +575,55 @@ public class TextToSpeech {
         return aigcMetadataJson;
     }
 
-    private String computeDataChunkSha256Hex(File wavFile) throws IOException, NoSuchAlgorithmException {
-        byte[] fileBytes = readAllBytes(wavFile);
-        if (fileBytes.length < 12) {
-            throw new IOException("WAV file is too short: " + wavFile.getAbsolutePath());
+    private void prependExplicitMarker(File wavFile) throws IOException {
+        byte[] sourceBytes = readAllBytes(wavFile);
+        validateRiffWave(sourceBytes, wavFile);
+        WavFormatInfo formatInfo = parseWavFormatInfo(sourceBytes, wavFile);
+        byte[] markerData = buildExplicitMarkerData(sourceBytes, formatInfo);
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream(sourceBytes.length + markerData.length + 64);
+        outputStream.write("RIFF".getBytes(StandardCharsets.US_ASCII));
+        writeLittleEndianInt(outputStream, 0);
+        outputStream.write("WAVE".getBytes(StandardCharsets.US_ASCII));
+
+        int offset = 12;
+        while (offset + 8 <= sourceBytes.length) {
+            String chunkId = new String(sourceBytes, offset, 4, StandardCharsets.US_ASCII);
+            int chunkSize = readLittleEndianInt(sourceBytes, offset + 4);
+            int chunkDataStart = offset + 8;
+            int chunkDataEnd = chunkDataStart + chunkSize;
+
+            if (chunkSize < 0 || chunkDataEnd > sourceBytes.length) {
+                throw new IOException("Invalid WAV chunk layout in " + wavFile.getAbsolutePath());
+            }
+
+            outputStream.write(chunkId.getBytes(StandardCharsets.US_ASCII));
+            if ("data".equals(chunkId)) {
+                writeLittleEndianInt(outputStream, chunkSize + markerData.length);
+                outputStream.write(markerData);
+                outputStream.write(sourceBytes, chunkDataStart, chunkSize);
+                if (((chunkSize + markerData.length) & 1) == 1) {
+                    outputStream.write(0);
+                }
+            } else {
+                writeLittleEndianInt(outputStream, chunkSize);
+                outputStream.write(sourceBytes, chunkDataStart, chunkSize);
+                if ((chunkSize & 1) == 1) {
+                    outputStream.write(0);
+                }
+            }
+
+            offset = chunkDataEnd + (chunkSize & 1);
         }
 
-        String riff = new String(fileBytes, 0, 4, StandardCharsets.US_ASCII);
-        String wave = new String(fileBytes, 8, 4, StandardCharsets.US_ASCII);
-        if (!"RIFF".equals(riff) || !"WAVE".equals(wave)) {
-            throw new IOException("Target file is not a RIFF/WAVE file: " + wavFile.getAbsolutePath());
-        }
+        byte[] rewrittenBytes = outputStream.toByteArray();
+        writeLittleEndianInt(rewrittenBytes, 4, rewrittenBytes.length - 8);
+        overwriteFile(wavFile, rewrittenBytes);
+    }
+
+    private String computeDataChunkSha256Hex(File wavFile) throws IOException, NoSuchAlgorithmException {
+        byte[] fileBytes = readAllBytes(wavFile);
+        validateRiffWave(fileBytes, wavFile);
 
         int offset = 12;
         while (offset + 8 <= fileBytes.length) {
@@ -584,6 +657,13 @@ public class TextToSpeech {
                 outputStream.write(buffer, 0, bytesRead);
             }
             return outputStream.toByteArray();
+        }
+    }
+
+    private void overwriteFile(File file, byte[] content) throws IOException {
+        try (FileOutputStream outputStream = new FileOutputStream(file, false)) {
+            outputStream.write(content);
+            outputStream.flush();
         }
     }
 
@@ -656,6 +736,193 @@ public class TextToSpeech {
         return escaped.toString();
     }
 
+    private void validateRiffWave(byte[] fileBytes, File wavFile) throws IOException {
+        if (fileBytes.length < 12) {
+            throw new IOException("WAV file is too short: " + wavFile.getAbsolutePath());
+        }
+
+        String riff = new String(fileBytes, 0, 4, StandardCharsets.US_ASCII);
+        String wave = new String(fileBytes, 8, 4, StandardCharsets.US_ASCII);
+        if (!"RIFF".equals(riff) || !"WAVE".equals(wave)) {
+            throw new IOException("Target file is not a RIFF/WAVE file: " + wavFile.getAbsolutePath());
+        }
+    }
+
+    private WavFormatInfo parseWavFormatInfo(byte[] fileBytes, File wavFile) throws IOException {
+        Integer audioFormat = null;
+        Integer channelCount = null;
+        Integer sampleRate = null;
+        Integer blockAlign = null;
+        Integer bitsPerSample = null;
+        Integer dataOffset = null;
+        Integer dataSize = null;
+
+        int offset = 12;
+        while (offset + 8 <= fileBytes.length) {
+            String chunkId = new String(fileBytes, offset, 4, StandardCharsets.US_ASCII);
+            int chunkSize = readLittleEndianInt(fileBytes, offset + 4);
+            int chunkDataStart = offset + 8;
+            int chunkDataEnd = chunkDataStart + chunkSize;
+
+            if (chunkSize < 0 || chunkDataEnd > fileBytes.length) {
+                throw new IOException("Invalid WAV chunk layout in " + wavFile.getAbsolutePath());
+            }
+
+            if ("fmt ".equals(chunkId)) {
+                if (chunkSize < 16) {
+                    throw new IOException("WAV fmt chunk is invalid: " + wavFile.getAbsolutePath());
+                }
+                audioFormat = readLittleEndianUnsignedShort(fileBytes, chunkDataStart);
+                channelCount = readLittleEndianUnsignedShort(fileBytes, chunkDataStart + 2);
+                sampleRate = readLittleEndianInt(fileBytes, chunkDataStart + 4);
+                blockAlign = readLittleEndianUnsignedShort(fileBytes, chunkDataStart + 12);
+                bitsPerSample = readLittleEndianUnsignedShort(fileBytes, chunkDataStart + 14);
+            } else if ("data".equals(chunkId)) {
+                dataOffset = chunkDataStart;
+                dataSize = chunkSize;
+            }
+
+            offset = chunkDataEnd + (chunkSize & 1);
+        }
+
+        if (audioFormat == null || channelCount == null || sampleRate == null || blockAlign == null
+                || bitsPerSample == null || dataOffset == null || dataSize == null) {
+            throw new IOException("WAV fmt/data chunks are incomplete: " + wavFile.getAbsolutePath());
+        }
+
+        return new WavFormatInfo(
+                audioFormat,
+                channelCount,
+                sampleRate,
+                blockAlign,
+                bitsPerSample,
+                dataOffset,
+                dataSize);
+    }
+
+    private byte[] buildExplicitMarkerData(byte[] fileBytes, WavFormatInfo formatInfo) throws IOException {
+        if (formatInfo.blockAlign <= 0) {
+            throw new IOException("Unsupported WAV block align: " + formatInfo.blockAlign);
+        }
+
+        int unitFrames = Math.max(1, (int) Math.round(formatInfo.sampleRate * EXPLICIT_MARKER_UNIT_SECONDS));
+        int shortToneFrames = unitFrames;
+        int longToneFrames = unitFrames * 3;
+        int intraGapFrames = unitFrames;
+        int letterGapFrames = unitFrames * 3;
+        int totalFrames = shortToneFrames + intraGapFrames + longToneFrames + letterGapFrames
+                + shortToneFrames + intraGapFrames + shortToneFrames;
+
+        float[] markerFrames = new float[totalFrames];
+        float amplitude = computeMarkerAmplitude(fileBytes, formatInfo);
+        int cursor = 0;
+
+        cursor = writeTone(markerFrames, cursor, shortToneFrames, formatInfo.sampleRate, amplitude);
+        cursor += intraGapFrames;
+        cursor = writeTone(markerFrames, cursor, longToneFrames, formatInfo.sampleRate, amplitude);
+        cursor += letterGapFrames;
+        cursor = writeTone(markerFrames, cursor, shortToneFrames, formatInfo.sampleRate, amplitude);
+        cursor += intraGapFrames;
+        writeTone(markerFrames, cursor, shortToneFrames, formatInfo.sampleRate, amplitude);
+
+        return encodeFrames(markerFrames, formatInfo);
+    }
+
+    private float computeMarkerAmplitude(byte[] fileBytes, WavFormatInfo formatInfo) throws IOException {
+        int frameCount = formatInfo.dataSize / formatInfo.blockAlign;
+        int sampledFrames = Math.min(frameCount, Math.max(formatInfo.sampleRate * 3, 1));
+        if (sampledFrames <= 0) {
+            return 0.12f;
+        }
+
+        double energy = 0.0d;
+        int samples = 0;
+        for (int frameIndex = 0; frameIndex < sampledFrames; frameIndex++) {
+            int frameOffset = formatInfo.dataOffset + frameIndex * formatInfo.blockAlign;
+            for (int channel = 0; channel < formatInfo.channelCount; channel++) {
+                int sampleOffset = frameOffset + channel * bytesPerSample(formatInfo);
+                float sample = decodeSample(fileBytes, sampleOffset, formatInfo);
+                energy += sample * sample;
+                samples++;
+            }
+        }
+
+        if (samples == 0) {
+            return 0.12f;
+        }
+
+        double rms = Math.sqrt(energy / samples);
+        double targetAmplitude = Math.max(0.08d, Math.min(0.28d, rms * Math.sqrt(2.0d)));
+        return (float) targetAmplitude;
+    }
+
+    private int writeTone(float[] destination, int startFrame, int toneFrames, int sampleRate, float amplitude) {
+        int fadeFrames = Math.max(1, (int) Math.round(sampleRate * EXPLICIT_MARKER_FADE_SECONDS));
+        for (int i = 0; i < toneFrames && startFrame + i < destination.length; i++) {
+            double envelope = 1.0d;
+            if (i < fadeFrames) {
+                envelope = Math.min(envelope, (double) i / fadeFrames);
+            }
+            int framesFromEnd = toneFrames - 1 - i;
+            if (framesFromEnd < fadeFrames) {
+                envelope = Math.min(envelope, (double) framesFromEnd / fadeFrames);
+            }
+            double phase = (2.0d * Math.PI * EXPLICIT_MARKER_TONE_FREQUENCY_HZ * i) / sampleRate;
+            destination[startFrame + i] = (float) (Math.sin(phase) * amplitude * Math.max(envelope, 0.0d));
+        }
+        return startFrame + toneFrames;
+    }
+
+    private byte[] encodeFrames(float[] frames, WavFormatInfo formatInfo) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream(frames.length * formatInfo.blockAlign);
+        for (float frame : frames) {
+            for (int channel = 0; channel < formatInfo.channelCount; channel++) {
+                writeSample(outputStream, frame, formatInfo);
+            }
+        }
+        return outputStream.toByteArray();
+    }
+
+    private void writeSample(ByteArrayOutputStream outputStream, float sample, WavFormatInfo formatInfo)
+            throws IOException {
+        float clamped = Math.max(-1.0f, Math.min(1.0f, sample));
+        if (formatInfo.audioFormat == 1 && formatInfo.bitsPerSample == 16) {
+            short pcm = (short) Math.round(clamped * Short.MAX_VALUE);
+            outputStream.write(pcm & 0xFF);
+            outputStream.write((pcm >> 8) & 0xFF);
+            return;
+        }
+        if (formatInfo.audioFormat == 1 && formatInfo.bitsPerSample == 32) {
+            int pcm = (int) Math.round(clamped * Integer.MAX_VALUE);
+            writeLittleEndianInt(outputStream, pcm);
+            return;
+        }
+        if (formatInfo.audioFormat == 3 && formatInfo.bitsPerSample == 32) {
+            writeLittleEndianInt(outputStream, Float.floatToIntBits(clamped));
+            return;
+        }
+        throw new IOException("Explicit marker only supports PCM16, PCM32, or Float32 WAV data");
+    }
+
+    private float decodeSample(byte[] data, int offset, WavFormatInfo formatInfo) throws IOException {
+        if (formatInfo.audioFormat == 1 && formatInfo.bitsPerSample == 16) {
+            short pcm = (short) readLittleEndianUnsignedShort(data, offset);
+            return pcm / 32768.0f;
+        }
+        if (formatInfo.audioFormat == 1 && formatInfo.bitsPerSample == 32) {
+            int pcm = readLittleEndianInt(data, offset);
+            return pcm / 2147483648.0f;
+        }
+        if (formatInfo.audioFormat == 3 && formatInfo.bitsPerSample == 32) {
+            return Float.intBitsToFloat(readLittleEndianInt(data, offset));
+        }
+        throw new IOException("Explicit marker only supports PCM16, PCM32, or Float32 WAV data");
+    }
+
+    private int bytesPerSample(WavFormatInfo formatInfo) {
+        return formatInfo.blockAlign / Math.max(formatInfo.channelCount, 1);
+    }
+
     private int readLittleEndianInt(RandomAccessFile raf) throws IOException {
         int b0 = raf.read();
         int b1 = raf.read();
@@ -674,11 +941,29 @@ public class TextToSpeech {
                 | ((data[offset + 3] & 0xFF) << 24);
     }
 
+    private int readLittleEndianUnsignedShort(byte[] data, int offset) {
+        return (data[offset] & 0xFF) | ((data[offset + 1] & 0xFF) << 8);
+    }
+
     private void writeLittleEndianInt(RandomAccessFile raf, int value) throws IOException {
         raf.write(value & 0xFF);
         raf.write((value >> 8) & 0xFF);
         raf.write((value >> 16) & 0xFF);
         raf.write((value >> 24) & 0xFF);
+    }
+
+    private void writeLittleEndianInt(ByteArrayOutputStream outputStream, int value) {
+        outputStream.write(value & 0xFF);
+        outputStream.write((value >> 8) & 0xFF);
+        outputStream.write((value >> 16) & 0xFF);
+        outputStream.write((value >> 24) & 0xFF);
+    }
+
+    private void writeLittleEndianInt(byte[] data, int offset, int value) {
+        data[offset] = (byte) (value & 0xFF);
+        data[offset + 1] = (byte) ((value >> 8) & 0xFF);
+        data[offset + 2] = (byte) ((value >> 16) & 0xFF);
+        data[offset + 3] = (byte) ((value >> 24) & 0xFF);
     }
 
     private String bytesToHex(byte[] bytes) {

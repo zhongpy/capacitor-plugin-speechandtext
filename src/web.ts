@@ -38,15 +38,21 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     return result;
   }
   async generateSpeech(options: GenerateSpeechOptions): Promise<GenerateSpeechResult> {
+    const produceId = options.produceId ?? '';
+    const contentProducer = options.contentProducer ?? '001191440115MA59C0UT8Y00000';
     const result = {
       filePath: '',
       sampleRate: 0,
       numSamples: 0,
+      explicitMarkerAdded: options.addExplicitMarker ?? false,
       aigcMetadata: {
         Label: options.label ?? '1',
-        ContentProducer: options.contentProducer ?? '001191440115MA59C0UT8Y00000',
-        ProduceID: options.produceId ?? '',
+        ContentProducer: contentProducer,
+        ProduceID: produceId,
         ReservedCode1: '',
+        ContentPropagator: options.contentPropagator ?? contentProducer,
+        PropagateID: options.propagateId ?? produceId,
+        ReservedCode2: options.reservedCode2,
       },
       aigcMetadataJson: '',
     };

@@ -32,16 +32,22 @@ export class SpeechAndTextWeb extends WebPlugin {
         return result;
     }
     async generateSpeech(options) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d, _e, _f;
+        const produceId = (_a = options.produceId) !== null && _a !== void 0 ? _a : '';
+        const contentProducer = (_b = options.contentProducer) !== null && _b !== void 0 ? _b : '001191440115MA59C0UT8Y00000';
         const result = {
             filePath: '',
             sampleRate: 0,
             numSamples: 0,
+            explicitMarkerAdded: (_c = options.addExplicitMarker) !== null && _c !== void 0 ? _c : false,
             aigcMetadata: {
-                Label: (_a = options.label) !== null && _a !== void 0 ? _a : '1',
-                ContentProducer: (_b = options.contentProducer) !== null && _b !== void 0 ? _b : '001191440115MA59C0UT8Y00000',
-                ProduceID: (_c = options.produceId) !== null && _c !== void 0 ? _c : '',
+                Label: (_d = options.label) !== null && _d !== void 0 ? _d : '1',
+                ContentProducer: contentProducer,
+                ProduceID: produceId,
                 ReservedCode1: '',
+                ContentPropagator: (_e = options.contentPropagator) !== null && _e !== void 0 ? _e : contentProducer,
+                PropagateID: (_f = options.propagateId) !== null && _f !== void 0 ? _f : produceId,
+                ReservedCode2: options.reservedCode2,
             },
             aigcMetadataJson: '',
         };

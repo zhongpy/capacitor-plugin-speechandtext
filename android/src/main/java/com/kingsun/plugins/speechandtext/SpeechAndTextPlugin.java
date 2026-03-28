@@ -164,11 +164,12 @@ public class SpeechAndTextPlugin extends Plugin {
         String wavName = call.getString("wavName");
         int sid = call.getInt("sid", 0);
         float speed = call.getFloat("speed", 1.0f);
+        boolean addExplicitMarker = call.getBoolean("addExplicitMarker", false);
         String label = call.getString("label", DEFAULT_AIGC_LABEL);
         String contentProducer = call.getString("contentProducer", DEFAULT_CONTENT_PRODUCER);
         String produceId = call.getString("produceId");
-        String contentPropagator = call.getString("contentPropagator", "");
-        String propagateId = call.getString("propagateId", "");
+        String contentPropagator = call.getString("contentPropagator");
+        String propagateId = call.getString("propagateId");
         String reservedCode2 = call.getString("reservedCode2", "");
 
         if (text == null || text.trim().isEmpty()) {
@@ -183,6 +184,12 @@ public class SpeechAndTextPlugin extends Plugin {
 
         if (produceId == null || produceId.trim().isEmpty()) {
             produceId = UUID.randomUUID().toString();
+        }
+        if (contentPropagator == null || contentPropagator.trim().isEmpty()) {
+            contentPropagator = contentProducer;
+        }
+        if (propagateId == null || propagateId.trim().isEmpty()) {
+            propagateId = produceId;
         }
 
         if (tts == null) {
@@ -203,7 +210,14 @@ public class SpeechAndTextPlugin extends Plugin {
                 reservedCode2);
         ttsExecutor.execute(() -> {
             try {
-                JSObject result = tts.generateSpeech(text, finalWavName, sid, speed, getContext(), aigcMetadata);
+                JSObject result = tts.generateSpeech(
+                        text,
+                        finalWavName,
+                        sid,
+                        speed,
+                        getContext(),
+                        aigcMetadata,
+                        addExplicitMarker);
                 stopped = true;
                 if (result != null) {
                     notifyListeners("onGenerationComplete", result);
