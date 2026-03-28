@@ -1,5 +1,5 @@
 import { WebPlugin } from '@capacitor/core';
-import type { SpeechAndTextPlugin } from './definitions';
+import type { GenerateSpeechOptions, GenerateSpeechResult, SpeechAndTextPlugin } from './definitions';
 export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     echo(options: {
         value: string;
@@ -31,12 +31,5 @@ export declare class SpeechAndTextWeb extends WebPlugin implements SpeechAndText
     }): Promise<{
         value: string;
     }>;
-    generateSpeech(options: {
-        text: string;
-        wavName: string;
-        sid: number;
-        speed: number;
-    }): Promise<{
-        value: string;
-    }>;
+    generateSpeech(options: GenerateSpeechOptions): Promise<GenerateSpeechResult>;
 }

@@ -95,18 +95,21 @@
       },
       {
         "name": "generateSpeech",
-        "signature": "(options: { text: string; wavName: string; sid: number; speed: number; }) => any",
+        "signature": "(options: GenerateSpeechOptions) => any",
         "parameters": [
           {
             "name": "options",
             "docs": "",
-            "type": "{ text: string; wavName: string; sid: number; speed: number; }"
+            "type": "GenerateSpeechOptions"
           }
         ],
         "returns": "any",
         "tags": [],
         "docs": "",
-        "complexTypes": [],
+        "complexTypes": [
+          "GenerateSpeechOptions",
+          "GenerateSpeechResult"
+        ],
         "slug": "generatespeech"
       },
       {
@@ -134,7 +137,7 @@
       },
       {
         "name": "addListener",
-        "signature": "(eventName: 'onGenerationComplete', listenerFunc: (data: { value: string; }) => void) => any",
+        "signature": "(eventName: 'onGenerationComplete', listenerFunc: (data: GenerateSpeechResult) => void) => any",
         "parameters": [
           {
             "name": "eventName",
@@ -144,13 +147,14 @@
           {
             "name": "listenerFunc",
             "docs": "",
-            "type": "(data: { value: string; }) => void"
+            "type": "(data: GenerateSpeechResult) => void"
           }
         ],
         "returns": "any",
         "tags": [],
         "docs": "",
         "complexTypes": [
+          "GenerateSpeechResult",
           "PluginListenerHandle"
         ],
         "slug": "addlistenerongenerationcomplete-"
@@ -159,6 +163,189 @@
     "properties": []
   },
   "interfaces": [
+    {
+      "name": "GenerateSpeechOptions",
+      "slug": "generatespeechoptions",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "text",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "wavName",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "sid",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "number"
+        },
+        {
+          "name": "speed",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "number"
+        },
+        {
+          "name": "label",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "contentProducer",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "produceId",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "contentPropagator",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "propagateId",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "reservedCode2",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        }
+      ]
+    },
+    {
+      "name": "GenerateSpeechResult",
+      "slug": "generatespeechresult",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "filePath",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "sampleRate",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "number"
+        },
+        {
+          "name": "numSamples",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "number"
+        },
+        {
+          "name": "aigcMetadata",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [
+            "AigcMetadata"
+          ],
+          "type": "AigcMetadata"
+        },
+        {
+          "name": "aigcMetadataJson",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "AigcMetadata",
+      "slug": "aigcmetadata",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "Label",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "ContentProducer",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "ProduceID",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "ReservedCode1",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "ContentPropagator",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "PropagateID",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "ReservedCode2",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        }
+      ]
+    },
     {
       "name": "PluginListenerHandle",
       "slug": "pluginlistenerhandle",

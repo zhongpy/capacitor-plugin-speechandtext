@@ -122,12 +122,12 @@ InitTTS(options: { itype: number; rootDir: string; }) => any
 ### generateSpeech(...)
 
 ```typescript
-generateSpeech(options: { text: string; wavName: string; sid: number; speed: number; }) => any
+generateSpeech(options: GenerateSpeechOptions) => any
 ```
 
-| Param         | Type                                                                        |
-| ------------- | --------------------------------------------------------------------------- |
-| **`options`** | <code>{ text: string; wavName: string; sid: number; speed: number; }</code> |
+| Param         | Type                                                                    |
+| ------------- | ----------------------------------------------------------------------- |
+| **`options`** | <code><a href="#generatespeechoptions">GenerateSpeechOptions</a></code> |
 
 **Returns:** <code>any</code>
 
@@ -153,13 +153,13 @@ addListener(eventName: 'onRecognizerResult', listenerFunc: (data: { text: string
 ### addListener('onGenerationComplete', ...)
 
 ```typescript
-addListener(eventName: 'onGenerationComplete', listenerFunc: (data: { value: string; }) => void) => any
+addListener(eventName: 'onGenerationComplete', listenerFunc: (data: GenerateSpeechResult) => void) => any
 ```
 
-| Param              | Type                                               |
-| ------------------ | -------------------------------------------------- |
-| **`eventName`**    | <code>'onGenerationComplete'</code>                |
-| **`listenerFunc`** | <code>(data: { value: string; }) =&gt; void</code> |
+| Param              | Type                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onGenerationComplete'</code>                                                      |
+| **`listenerFunc`** | <code>(data: <a href="#generatespeechresult">GenerateSpeechResult</a>) =&gt; void</code> |
 
 **Returns:** <code>any</code>
 
@@ -167,6 +167,46 @@ addListener(eventName: 'onGenerationComplete', listenerFunc: (data: { value: str
 
 
 ### Interfaces
+
+
+#### GenerateSpeechOptions
+
+| Prop                    | Type                |
+| ----------------------- | ------------------- |
+| **`text`**              | <code>string</code> |
+| **`wavName`**           | <code>string</code> |
+| **`sid`**               | <code>number</code> |
+| **`speed`**             | <code>number</code> |
+| **`label`**             | <code>string</code> |
+| **`contentProducer`**   | <code>string</code> |
+| **`produceId`**         | <code>string</code> |
+| **`contentPropagator`** | <code>string</code> |
+| **`propagateId`**       | <code>string</code> |
+| **`reservedCode2`**     | <code>string</code> |
+
+
+#### GenerateSpeechResult
+
+| Prop                   | Type                                                  |
+| ---------------------- | ----------------------------------------------------- |
+| **`filePath`**         | <code>string</code>                                   |
+| **`sampleRate`**       | <code>number</code>                                   |
+| **`numSamples`**       | <code>number</code>                                   |
+| **`aigcMetadata`**     | <code><a href="#aigcmetadata">AigcMetadata</a></code> |
+| **`aigcMetadataJson`** | <code>string</code>                                   |
+
+
+#### AigcMetadata
+
+| Prop                    | Type                |
+| ----------------------- | ------------------- |
+| **`Label`**             | <code>string</code> |
+| **`ContentProducer`**   | <code>string</code> |
+| **`ProduceID`**         | <code>string</code> |
+| **`ReservedCode1`**     | <code>string</code> |
+| **`ContentPropagator`** | <code>string</code> |
+| **`PropagateID`**       | <code>string</code> |
+| **`ReservedCode2`**     | <code>string</code> |
 
 
 #### PluginListenerHandle

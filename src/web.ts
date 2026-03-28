@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { SpeechAndTextPlugin } from './definitions';
+import type { GenerateSpeechOptions, GenerateSpeechResult, SpeechAndTextPlugin } from './definitions';
 
 export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
   async echo(options: { value: string }): Promise<{ value: string }> {
@@ -37,13 +37,19 @@ export class SpeechAndTextWeb extends WebPlugin implements SpeechAndTextPlugin {
     console.log('InitTTS', options);
     return result;
   }
-  async generateSpeech(options: {
-    text: string;
-    wavName: string;
-    sid: number;
-    speed: number;
-  }): Promise<{ value: string }> {
-    const result = { value: '' };
+  async generateSpeech(options: GenerateSpeechOptions): Promise<GenerateSpeechResult> {
+    const result = {
+      filePath: '',
+      sampleRate: 0,
+      numSamples: 0,
+      aigcMetadata: {
+        Label: options.label ?? '1',
+        ContentProducer: options.contentProducer ?? '001191440115MA59C0UT8Y00000',
+        ProduceID: options.produceId ?? '',
+        ReservedCode1: '',
+      },
+      aigcMetadataJson: '',
+    };
     console.log('generateSpeech', options);
     return result;
   }

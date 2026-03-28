@@ -32,7 +32,19 @@ export class SpeechAndTextWeb extends WebPlugin {
         return result;
     }
     async generateSpeech(options) {
-        const result = { value: '' };
+        var _a, _b, _c;
+        const result = {
+            filePath: '',
+            sampleRate: 0,
+            numSamples: 0,
+            aigcMetadata: {
+                Label: (_a = options.label) !== null && _a !== void 0 ? _a : '1',
+                ContentProducer: (_b = options.contentProducer) !== null && _b !== void 0 ? _b : '001191440115MA59C0UT8Y00000',
+                ProduceID: (_c = options.produceId) !== null && _c !== void 0 ? _c : '',
+                ReservedCode1: '',
+            },
+            aigcMetadataJson: '',
+        };
         console.log('generateSpeech', options);
         return result;
     }

@@ -14,6 +14,8 @@ import java.util.concurrent.Executors;
 public class SpeechAndTextPlugin extends Plugin {
 
     private static final String TAG = "SpeechAndTextPlugin";
+    private static final String DEFAULT_AIGC_LABEL = "1";
+    private static final String DEFAULT_CONTENT_PRODUCER = "001191440115MA59C0UT8Y00000";
     private final SpeechAndText implementation = new SpeechAndText();
 
     private SpeechToText stt = null;
@@ -162,6 +164,12 @@ public class SpeechAndTextPlugin extends Plugin {
         String wavName = call.getString("wavName");
         int sid = call.getInt("sid", 0);
         float speed = call.getFloat("speed", 1.0f);
+        String label = call.getString("label", DEFAULT_AIGC_LABEL);
+        String contentProducer = call.getString("contentProducer", DEFAULT_CONTENT_PRODUCER);
+        String produceId = call.getString("produceId");
+        String contentPropagator = call.getString("contentPropagator", "");
+        String propagateId = call.getString("propagateId", "");
+        String reservedCode2 = call.getString("reservedCode2", "");
 
         if (text == null || text.trim().isEmpty()) {
             call.reject("Text cannot be empty");
@@ -173,6 +181,10 @@ public class SpeechAndTextPlugin extends Plugin {
             wavName = uuid.toString();
         }
 
+        if (produceId == null || produceId.trim().isEmpty()) {
+            produceId = UUID.randomUUID().toString();
+        }
+
         if (tts == null) {
             call.reject("TTS not initialized");
             return;
@@ -182,9 +194,16 @@ public class SpeechAndTextPlugin extends Plugin {
 
         ttsExecutor = Executors.newSingleThreadExecutor();
         String finalWavName = wavName;
+        TextToSpeech.AigcMetadata aigcMetadata = new TextToSpeech.AigcMetadata(
+                label,
+                contentProducer,
+                produceId,
+                contentPropagator,
+                propagateId,
+                reservedCode2);
         ttsExecutor.execute(() -> {
             try {
-                JSObject result = tts.generateSpeech(text, finalWavName, sid, speed, getContext());
+                JSObject result = tts.generateSpeech(text, finalWavName, sid, speed, getContext(), aigcMetadata);
                 stopped = true;
                 if (result != null) {
                     notifyListeners("onGenerationComplete", result);

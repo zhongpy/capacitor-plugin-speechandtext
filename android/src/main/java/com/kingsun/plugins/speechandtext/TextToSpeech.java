@@ -22,23 +22,56 @@ import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsMatchaModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig;
 import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class TextToSpeech {
 
     private static final String TAG = "TextToSpeech";
+    private static final String AIGC_CHUNK_ID = "AIGC";
     private OfflineTts tts;
     private AudioTrack track;
     private ExecutorService ttsExecutor;
     private final String outputFilename = ".wav";
     private volatile boolean stopped = false;
+
+    public static class AigcMetadata {
+        public final String label;
+        public final String contentProducer;
+        public final String produceId;
+        public final String contentPropagator;
+        public final String propagateId;
+        public final String reservedCode2;
+        public String reservedCode1;
+
+        public AigcMetadata(
+                String label,
+                String contentProducer,
+                String produceId,
+                String contentPropagator,
+                String propagateId,
+                String reservedCode2) {
+            this.label = label;
+            this.contentProducer = contentProducer;
+            this.produceId = produceId;
+            this.contentPropagator = contentPropagator;
+            this.propagateId = propagateId;
+            this.reservedCode2 = reservedCode2;
+            this.reservedCode1 = "";
+        }
+    }
 
     private String copyDataDir(String dataDir, Context context) {
         // 递归拷贝 assets/dataDir 到 files/dataDir
@@ -404,7 +437,13 @@ public class TextToSpeech {
         track.play();
     }
 
-    public JSObject generateSpeech(String text, String wavName, int sid, float speed, Context context) {
+    public JSObject generateSpeech(
+            String text,
+            String wavName,
+            int sid,
+            float speed,
+            Context context,
+            AigcMetadata aigcMetadata) throws IOException, NoSuchAlgorithmException {
         // track.pause();
         // track.flush();
         // track.play();
@@ -414,10 +453,32 @@ public class TextToSpeech {
         String filename = context.getFilesDir().getAbsolutePath() + "/" + wavName + outputFilename;
         boolean success = audio.getSamples().length > 0 && audio.save(filename);
         if (success) {
+            File wavFile = new File(filename);
+            String reservedCode1 = computeDataChunkSha256Hex(wavFile);
+            aigcMetadata.reservedCode1 = reservedCode1;
+            String aigcMetadataJson = appendAigcChunk(wavFile, aigcMetadata);
+
+            JSObject aigcMetadataObject = new JSObject();
+            aigcMetadataObject.put("Label", aigcMetadata.label);
+            aigcMetadataObject.put("ContentProducer", aigcMetadata.contentProducer);
+            aigcMetadataObject.put("ProduceID", aigcMetadata.produceId);
+            aigcMetadataObject.put("ReservedCode1", aigcMetadata.reservedCode1);
+            if (!aigcMetadata.contentPropagator.isEmpty()) {
+                aigcMetadataObject.put("ContentPropagator", aigcMetadata.contentPropagator);
+            }
+            if (!aigcMetadata.propagateId.isEmpty()) {
+                aigcMetadataObject.put("PropagateID", aigcMetadata.propagateId);
+            }
+            if (!aigcMetadata.reservedCode2.isEmpty()) {
+                aigcMetadataObject.put("ReservedCode2", aigcMetadata.reservedCode2);
+            }
+
             JSObject result = new JSObject();
             result.put("filePath", filename);
             result.put("sampleRate", tts.getSampleRate());
             result.put("numSamples", audio.getSamples().length);
+            result.put("aigcMetadata", aigcMetadataObject);
+            result.put("aigcMetadataJson", aigcMetadataJson);
 
             return result;
         } else {
@@ -437,5 +498,195 @@ public class TextToSpeech {
             tts.release();
             tts = null;
         }
+    }
+
+    private String appendAigcChunk(File wavFile, AigcMetadata metadata) throws IOException {
+        String aigcMetadataJson = buildAigcMetadataJson(metadata);
+        byte[] chunkData = aigcMetadataJson.getBytes(StandardCharsets.UTF_8);
+        int padding = chunkData.length % 2;
+
+        try (RandomAccessFile raf = new RandomAccessFile(wavFile, "rw")) {
+            if (raf.length() < 12) {
+                throw new IOException("WAV file is too short: " + wavFile.getAbsolutePath());
+            }
+
+            byte[] riffHeader = new byte[4];
+            raf.readFully(riffHeader);
+            byte[] waveHeader = new byte[4];
+            raf.seek(8);
+            raf.readFully(waveHeader);
+
+            if (!"RIFF".equals(new String(riffHeader, StandardCharsets.US_ASCII))
+                    || !"WAVE".equals(new String(waveHeader, StandardCharsets.US_ASCII))) {
+                throw new IOException("Target file is not a RIFF/WAVE file: " + wavFile.getAbsolutePath());
+            }
+
+            raf.seek(4);
+            int currentRiffSize = readLittleEndianInt(raf);
+            int nextRiffSize = currentRiffSize + 8 + chunkData.length + padding;
+
+            raf.seek(raf.length());
+            raf.write(AIGC_CHUNK_ID.getBytes(StandardCharsets.US_ASCII));
+            writeLittleEndianInt(raf, chunkData.length);
+            raf.write(chunkData);
+            if (padding == 1) {
+                raf.write(0);
+            }
+
+            raf.seek(4);
+            writeLittleEndianInt(raf, nextRiffSize);
+        }
+
+        return aigcMetadataJson;
+    }
+
+    private String computeDataChunkSha256Hex(File wavFile) throws IOException, NoSuchAlgorithmException {
+        byte[] fileBytes = readAllBytes(wavFile);
+        if (fileBytes.length < 12) {
+            throw new IOException("WAV file is too short: " + wavFile.getAbsolutePath());
+        }
+
+        String riff = new String(fileBytes, 0, 4, StandardCharsets.US_ASCII);
+        String wave = new String(fileBytes, 8, 4, StandardCharsets.US_ASCII);
+        if (!"RIFF".equals(riff) || !"WAVE".equals(wave)) {
+            throw new IOException("Target file is not a RIFF/WAVE file: " + wavFile.getAbsolutePath());
+        }
+
+        int offset = 12;
+        while (offset + 8 <= fileBytes.length) {
+            String chunkId = new String(fileBytes, offset, 4, StandardCharsets.US_ASCII);
+            int chunkSize = readLittleEndianInt(fileBytes, offset + 4);
+            int chunkDataStart = offset + 8;
+            int chunkDataEnd = chunkDataStart + chunkSize;
+
+            if (chunkSize < 0 || chunkDataEnd > fileBytes.length) {
+                throw new IOException("Invalid WAV chunk layout in " + wavFile.getAbsolutePath());
+            }
+
+            if ("data".equals(chunkId)) {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                digest.update(fileBytes, chunkDataStart, chunkSize);
+                return bytesToHex(digest.digest());
+            }
+
+            offset = chunkDataEnd + (chunkSize % 2);
+        }
+
+        throw new IOException("WAV data chunk not found: " + wavFile.getAbsolutePath());
+    }
+
+    private byte[] readAllBytes(File file) throws IOException {
+        try (FileInputStream inputStream = new FileInputStream(file);
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            return outputStream.toByteArray();
+        }
+    }
+
+    private String buildAigcMetadataJson(AigcMetadata metadata) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("{");
+        appendJsonField(builder, "Label", metadata.label, false);
+        appendJsonField(builder, "ContentProducer", metadata.contentProducer, true);
+        appendJsonField(builder, "ProduceID", metadata.produceId, true);
+        appendJsonField(builder, "ReservedCode1", metadata.reservedCode1, true);
+        if (!metadata.contentPropagator.isEmpty()) {
+            appendJsonField(builder, "ContentPropagator", metadata.contentPropagator, true);
+        }
+        if (!metadata.propagateId.isEmpty()) {
+            appendJsonField(builder, "PropagateID", metadata.propagateId, true);
+        }
+        if (!metadata.reservedCode2.isEmpty()) {
+            appendJsonField(builder, "ReservedCode2", metadata.reservedCode2, true);
+        }
+        builder.append("}");
+        return builder.toString();
+    }
+
+    private void appendJsonField(StringBuilder builder, String key, String value, boolean prependComma) {
+        if (prependComma) {
+            builder.append(",");
+        }
+        builder.append("\"")
+                .append(escapeJson(key))
+                .append("\":\"")
+                .append(escapeJson(value))
+                .append("\"");
+    }
+
+    private String escapeJson(String value) {
+        StringBuilder escaped = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\':
+                    escaped.append("\\\\");
+                    break;
+                case '"':
+                    escaped.append("\\\"");
+                    break;
+                case '\b':
+                    escaped.append("\\b");
+                    break;
+                case '\f':
+                    escaped.append("\\f");
+                    break;
+                case '\n':
+                    escaped.append("\\n");
+                    break;
+                case '\r':
+                    escaped.append("\\r");
+                    break;
+                case '\t':
+                    escaped.append("\\t");
+                    break;
+                default:
+                    if (c <= 0x1F) {
+                        escaped.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        escaped.append(c);
+                    }
+                    break;
+            }
+        }
+        return escaped.toString();
+    }
+
+    private int readLittleEndianInt(RandomAccessFile raf) throws IOException {
+        int b0 = raf.read();
+        int b1 = raf.read();
+        int b2 = raf.read();
+        int b3 = raf.read();
+        if ((b0 | b1 | b2 | b3) < 0) {
+            throw new IOException("Unexpected EOF while reading little-endian int");
+        }
+        return (b0 & 0xFF) | ((b1 & 0xFF) << 8) | ((b2 & 0xFF) << 16) | ((b3 & 0xFF) << 24);
+    }
+
+    private int readLittleEndianInt(byte[] data, int offset) {
+        return (data[offset] & 0xFF)
+                | ((data[offset + 1] & 0xFF) << 8)
+                | ((data[offset + 2] & 0xFF) << 16)
+                | ((data[offset + 3] & 0xFF) << 24);
+    }
+
+    private void writeLittleEndianInt(RandomAccessFile raf, int value) throws IOException {
+        raf.write(value & 0xFF);
+        raf.write((value >> 8) & 0xFF);
+        raf.write((value >> 16) & 0xFF);
+        raf.write((value >> 24) & 0xFF);
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+            hex.append(Character.forDigit(b & 0xF, 16));
+        }
+        return hex.toString();
     }
 }
