@@ -42,7 +42,7 @@ public class TextToSpeech {
     private static final String TAG = "TextToSpeech";
     private static final String AIGC_CHUNK_ID = "AIGC";
     private static final double EXPLICIT_MARKER_UNIT_SECONDS = 0.10d;
-    private static final double EXPLICIT_MARKER_TONE_FREQUENCY_HZ = 1760.0d;
+    private static final double EXPLICIT_MARKER_TONE_FREQUENCY_HZ = 1000.0d;
     private static final double EXPLICIT_MARKER_FADE_SECONDS = 0.008d;
     private OfflineTts tts;
     private AudioTrack track;
@@ -808,21 +808,21 @@ public class TextToSpeech {
         int unitFrames = Math.max(1, (int) Math.round(formatInfo.sampleRate * EXPLICIT_MARKER_UNIT_SECONDS));
         int shortToneFrames = unitFrames;
         int longToneFrames = unitFrames * 3;
-        int intraGapFrames = unitFrames;
-        int letterGapFrames = unitFrames * 3;
-        int totalFrames = shortToneFrames + intraGapFrames + longToneFrames + letterGapFrames
-                + shortToneFrames + intraGapFrames + shortToneFrames;
+        int symbolGapFrames = unitFrames;
+        // Morse "AI" rendered as a strict explicit marker sequence: . - . .
+        int totalFrames = shortToneFrames + symbolGapFrames + longToneFrames + symbolGapFrames
+                + shortToneFrames + symbolGapFrames + shortToneFrames;
 
         float[] markerFrames = new float[totalFrames];
         float amplitude = computeMarkerAmplitude(fileBytes, formatInfo);
         int cursor = 0;
 
         cursor = writeTone(markerFrames, cursor, shortToneFrames, formatInfo.sampleRate, amplitude);
-        cursor += intraGapFrames;
+        cursor += symbolGapFrames;
         cursor = writeTone(markerFrames, cursor, longToneFrames, formatInfo.sampleRate, amplitude);
-        cursor += letterGapFrames;
+        cursor += symbolGapFrames;
         cursor = writeTone(markerFrames, cursor, shortToneFrames, formatInfo.sampleRate, amplitude);
-        cursor += intraGapFrames;
+        cursor += symbolGapFrames;
         writeTone(markerFrames, cursor, shortToneFrames, formatInfo.sampleRate, amplitude);
 
         return encodeFrames(markerFrames, formatInfo);
@@ -848,11 +848,11 @@ public class TextToSpeech {
         }
 
         if (samples == 0) {
-            return 0.12f;
+            return 0.18f;
         }
 
         double rms = Math.sqrt(energy / samples);
-        double targetAmplitude = Math.max(0.08d, Math.min(0.28d, rms * Math.sqrt(2.0d)));
+        double targetAmplitude = Math.max(0.12d, Math.min(0.35d, rms * Math.sqrt(2.0d)));
         return (float) targetAmplitude;
     }
 
